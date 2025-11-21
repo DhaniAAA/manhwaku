@@ -1,65 +1,241 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+// 1. Update Interface sesuai JSON aslimu
+interface Chapter {
+    title: string;
+    waktu_rilis: string;
+    slug: string;
+}
+
+interface Manhwa {
+    slug: string;
+    title: string;
+    cover_url: string; // Langsung URL lengkap
+    genres: string[];
+    type: string;
+    status: string;
+    rating: string;
+    latestChapters: Chapter[];
+}
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    const [manhwas, setManhwas] = useState<Manhwa[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
+
+    // 2. Fetch Data
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const res = await fetch("/api/all_manhwa");
+                if (!res.ok) throw new Error("Gagal mengambil data");
+                const data = await res.json();
+
+                if (Array.isArray(data)) {
+                    setManhwas(data);
+                } else {
+                    console.error("Format data salah:", data);
+                }
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    // 3. Filter Pencarian
+    const filteredManhwas = manhwas.filter((item) => item.title.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // 4. Pagination Calculations
+    const totalPages = Math.ceil(filteredManhwas.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentManhwas = filteredManhwas.slice(startIndex, endIndex);
+
+    // Reset to page 1 when search term changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
+    return (
+        <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
+            {/* --- NAVBAR --- */}
+            <nav className="bg-white shadow-sm sticky top-0 z-20 border-b border-gray-100">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                    <h1 className="text-2xl font-bold text-blue-600 tracking-tight">
+                        Manhwa<span className="text-gray-800">Ku</span>
+                    </h1>
+                    <div className="flex items-center gap-4">
+                        <Link href="/api" className="text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors">
+                            API Docs
+                        </Link>
+                    </div>
+                </div>
+            </nav>
+
+            {/* --- HERO --- */}
+            <header className="bg-linear-to-r from-blue-600 to-blue-700 text-white py-16 px-4 text-center shadow-md">
+                <h2 className="text-3xl md:text-4xl font-extrabold mb-3">Temukan Bacaan Favoritmu</h2>
+                <p className="text-blue-100 mb-8 text-lg max-w-2xl mx-auto">Koleksi manhwa terlengkap dengan update chapter terbaru setiap hari.</p>
+
+                <div className="max-w-lg mx-auto relative">
+                    <input
+                        type="text"
+                        placeholder="Cari judul manhwa, misal: A Bad Person..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full py-3.5 px-6 rounded-full text-gray-800 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-400/50 placeholder-gray-400 transition-all"
+                    />
+                    <span className="absolute right-5 top-4 text-gray-400">🔍</span>
+                </div>
+            </header>
+
+            {/* --- MAIN CONTENT --- */}
+            <main className="max-w-7xl mx-auto px-4 py-12">
+                {/* Loading State */}
+                {loading && (
+                    <div className="flex flex-col justify-center items-center h-64 space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                        <p className="text-gray-500 animate-pulse">Sedang memuat komik...</p>
+                    </div>
+                )}
+
+                {/* Empty State */}
+                {!loading && filteredManhwas.length === 0 && (
+                    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                        <p className="text-gray-400 text-lg">Komik "{searchTerm}" tidak ditemukan.</p>
+                    </div>
+                )}
+
+                {/* GRID LAYOUT */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8">
+                    {currentManhwas.map((manhwa, index) => (
+                        <Link
+                            href={`/detail/${manhwa.slug}`} // Link ke detail page
+                            key={index}
+                            className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
+                        >
+                            {/* Image Cover */}
+                            <div className="aspect-3/4 overflow-hidden bg-gray-200 relative">
+                                {/* Label Chapter Terbaru di Pojok Kiri Atas */}
+                                {manhwa.latestChapters && manhwa.latestChapters.length > 0 && (
+                                    <div className="absolute top-2 left-2 z-10">
+                                        <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-md">{manhwa.latestChapters[0].title.replace("Chapter", "Ch.")}</span>
+                                    </div>
+                                )}
+
+                                <img
+                                    src={manhwa.cover_url} // Menggunakan URL langsung dari JSON
+                                    alt={manhwa.title}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                        // Fallback image jika link rusak
+                                        (e.target as HTMLImageElement).src = "https://placehold.co/300x400?text=No+Image";
+                                    }}
+                                />
+
+                                {/* Rating Badge di Pojok Kanan Bawah Image */}
+                                <div className="absolute bottom-0 right-0 bg-linear-to-t from-black/80 to-transparent w-full p-2 flex justify-end">
+                                    <div className="flex items-center text-white text-xs font-bold">
+                                        <span className="text-yellow-400 mr-1">★</span>
+                                        {manhwa.rating}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Info Section */}
+                            <div className="p-3 flex flex-col grow">
+                                {/* Genres (Tampilkan 1 saja biar rapi) */}
+                                <div className="text-[10px] text-blue-600 font-semibold mb-1 uppercase tracking-wide">{manhwa.genres && manhwa.genres.length > 0 ? manhwa.genres[0] : manhwa.type}</div>
+
+                                {/* Title */}
+                                <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 mb-2 group-hover:text-blue-700 transition-colors">
+                                    {manhwa.title.replace(" Bahasa Indonesia", "")}
+                                    {/* Saya hapus "Bahasa Indonesia" agar judul tidak kepanjangan */}
+                                </h3>
+
+                                {/* Last Chapter Info */}
+                                {manhwa.latestChapters && manhwa.latestChapters.length > 0 && (
+                                    <div className="text-[10px] text-gray-500 mb-2">
+                                        <span className="font-medium">Last: </span>
+                                        {manhwa.latestChapters[manhwa.latestChapters.length - 1].title.replace("Chapter", "Ch.")}
+                                    </div>
+                                )}
+
+                                {/* Status Badge (Footer Card) */}
+                                <div className="mt-auto pt-2 border-t border-gray-100 flex justify-between items-center">
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${manhwa.status === "Ongoing" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{manhwa.status}</span>
+                                </div>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+
+                {/* PAGINATION CONTROLS */}
+                {!loading && filteredManhwas.length > 0 && totalPages > 1 && (
+                    <div className="mt-12 flex flex-col items-center gap-4">
+                        {/* Page Info */}
+                        <p className="text-sm text-gray-600">
+                            Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredManhwas.length)} dari {filteredManhwas.length} manhwa
+                        </p>
+
+                        {/* Pagination Buttons */}
+                        <div className="flex items-center gap-2">
+                            {/* Previous Button */}
+                            <button
+                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                ← Prev
+                            </button>
+
+                            {/* Page Numbers */}
+                            <div className="flex gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter((page) => {
+                                        // Show first page, last page, current page, and pages around current
+                                        return page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1);
+                                    })
+                                    .map((page, index, array) => (
+                                        <div key={page} className="flex items-center gap-1">
+                                            {/* Show ellipsis if there's a gap */}
+                                            {index > 0 && page - array[index - 1] > 1 && <span className="px-2 text-gray-400">...</span>}
+                                            <button
+                                                onClick={() => setCurrentPage(page)}
+                                                className={`w-10 h-10 rounded-lg font-medium transition-all ${currentPage === page ? "bg-blue-600 text-white shadow-md" : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                                            >
+                                                {page}
+                                            </button>
+                                        </div>
+                                    ))}
+                            </div>
+
+                            {/* Next Button */}
+                            <button
+                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                Next →
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </main>
+
+            <footer className="bg-white border-t py-8 text-center text-gray-500 text-sm mt-auto">
+                <p>© {new Date().getFullYear()} ManhwaKu. Data powered by Supabase.</p>
+            </footer>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+    );
 }
