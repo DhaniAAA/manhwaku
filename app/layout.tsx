@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ManhwaKu -",
+  title: "ManhwaKu",
   description: "ManhwaKu - Manhwa Online Free Read",
 };
 

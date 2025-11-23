@@ -69,33 +69,69 @@ export default function Home() {
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
             {/* --- NAVBAR --- */}
             <nav className="bg-white shadow-sm sticky top-0 z-20 border-b border-gray-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <h1 className="text-2xl font-bold text-blue-600 tracking-tight">
-                        Manhwa<span className="text-gray-800">Ku</span>
-                    </h1>
-                    <div className="flex items-center gap-4">
-                        <Link href="/api" className="text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                        {/* Logo */}
+                        <h1 className="text-2xl font-bold text-blue-600 tracking-tight whitespace-nowrap">
+                            Manhwa<span className="text-gray-800">Ku</span>
+                        </h1>
+
+                        {/* Navigation Menu - Hidden on mobile */}
+                        <div className="hidden md:flex items-center gap-6">
+                            <Link href="/" className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                                Home
+                            </Link>
+                            <Link href="/jelajahi" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
+                                Jelajahi
+                            </Link>
+                            <Link href="/library" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
+                                Library
+                            </Link>
+                            <Link href="/daftar-manhwa" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
+                                Daftar Manhwa
+                            </Link>
+                        </div>
+
+                        {/* Search Bar */}
+                        <div className="flex-1 max-w-md relative">
+                            <input
+                                type="text"
+                                placeholder="Cari manhwa..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full py-2 px-4 pr-10 rounded-full text-sm text-gray-800 bg-gray-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 placeholder-gray-400 transition-all"
+                            />
+                            <span className="absolute right-4 top-2.5 text-gray-400 text-sm">🔍</span>
+                        </div>
+
+                        {/* API Docs Link */}
+                        <Link href="/api" className="hidden lg:block text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors whitespace-nowrap">
                             API Docs
+                        </Link>
+                    </div>
+
+                    {/* Mobile Navigation Menu */}
+                    <div className="md:hidden flex items-center gap-4 mt-3 overflow-x-auto pb-1">
+                        <Link href="/" className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors whitespace-nowrap">
+                            Home
+                        </Link>
+                        <Link href="/jelajahi" className="text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            Jelajahi
+                        </Link>
+                        <Link href="/library" className="text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            Library
+                        </Link>
+                        <Link href="/daftar-manhwa" className="text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors whitespace-nowrap">
+                            Daftar Manhwa
                         </Link>
                     </div>
                 </div>
             </nav>
 
             {/* --- HERO --- */}
-            <header className="bg-linear-to-r from-blue-600 to-blue-700 text-white py-16 px-4 text-center shadow-md">
+            <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-12 px-4 text-center shadow-md">
                 <h2 className="text-3xl md:text-4xl font-extrabold mb-3">Temukan Bacaan Favoritmu</h2>
-                <p className="text-blue-100 mb-8 text-lg max-w-2xl mx-auto">Koleksi manhwa terlengkap dengan update chapter terbaru setiap hari.</p>
-
-                <div className="max-w-lg mx-auto relative">
-                    <input
-                        type="text"
-                        placeholder="Cari judul manhwa, misal: A Bad Person..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full py-3.5 px-6 rounded-full text-gray-800 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-400/50 placeholder-gray-400 transition-all"
-                    />
-                    <span className="absolute right-5 top-4 text-gray-400">🔍</span>
-                </div>
+                <p className="text-blue-100 text-lg max-w-2xl mx-auto">Koleksi manhwa terlengkap dengan update chapter terbaru setiap hari.</p>
             </header>
 
             {/* --- MAIN CONTENT --- */}
@@ -234,7 +270,7 @@ export default function Home() {
             </main>
 
             <footer className="bg-white border-t py-8 text-center text-gray-500 text-sm mt-auto">
-                <p>© {new Date().getFullYear()} ManhwaKu. Data powered by Supabase.</p>
+                <p>© {new Date().getFullYear()} ManhwaKu. Data obtained from various sources.</p>
             </footer>
         </div>
     );
