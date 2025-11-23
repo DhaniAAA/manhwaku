@@ -85,25 +85,49 @@ export default function ApiDocs() {
                         {activeTab === "list" ? (
                             /* DOKUMENTASI ALL MANHWA */
                             <div>
-                                <div className="bg-gray-100 p-4 rounded-md font-mono text-sm mb-4 flex items-center">
-                                    <span className="bg-green-600 text-white px-2 py-1 rounded mr-3 font-bold">GET</span>
-                                    <span>/api/all-manhwa</span>
+                                <div className="bg-gray-100 p-4 rounded-md font-mono text-sm mb-4 flex items-center justify-between group">
+                                    <div className="flex items-center overflow-hidden">
+                                        <span className="bg-green-600 text-white px-2 py-1 rounded mr-3 font-bold shrink-0">GET</span>
+                                        <span className="truncate">https://www.manhwaku.biz.id/api/all_manhwa</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText("https://www.manhwaku.biz.id/api/all_manhwa");
+                                            alert("URL Copied!");
+                                        }}
+                                        className="ml-4 p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                                        title="Copy URL"
+                                    >
+                                        📋
+                                    </button>
                                 </div>
                                 <p className="text-gray-600 mb-4">
-                                    Mengambil file <code>all-manhwa-metadata.json</code> yang berisi daftar ringkas semua komik yang tersedia.
+                                    Mengambil file <code>all-manhwa-metadata.json</code> yang berisi daftar ringkas semua komik yang tersedia. Gunakan untuk di halaman Utama kalina sepaya tidak Lag ketika pertama kali Load.
                                 </p>
                                 <p className="text-sm text-gray-500">Tidak memerlukan parameter.</p>
                             </div>
                         ) : (
                             /* DOKUMENTASI SINGLE MANHWA */
                             <div>
-                                <div className="bg-gray-100 p-4 rounded-md font-mono text-sm mb-4 flex items-center">
-                                    <span className="bg-green-600 text-white px-2 py-1 rounded mr-3 font-bold">GET</span>
-                                    <span className="break-all">
-                                        /api/manhwa/<span className="text-blue-600">{"{slug}"}</span>?type=<span className="text-blue-600">{"{type}"}</span>
-                                    </span>
+                                <div className="bg-gray-100 p-4 rounded-md font-mono text-sm mb-4 flex items-center justify-between group">
+                                    <div className="flex items-center overflow-hidden">
+                                        <span className="bg-green-600 text-white px-2 py-1 rounded mr-3 font-bold shrink-0">GET</span>
+                                        <span className="truncate">
+                                            https://www.manhwaku.biz.id/api/manhwa/<span className="text-blue-600">{"{slug}"}</span>?type=<span className="text-blue-600">{"{type}"}</span>
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText("https://www.manhwaku.biz.id/api/manhwa/{slug}?type={type}");
+                                            alert("URL Copied!");
+                                        }}
+                                        className="ml-4 p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                                        title="Copy URL"
+                                    >
+                                        📋
+                                    </button>
                                 </div>
-                                <p className="text-gray-600 mb-4">Mengambil detail metadata atau daftar chapter untuk satu judul komik tertentu.</p>
+                                <p className="text-gray-600 mb-4">Mengambil detail metadata atau daftar chapter untuk satu judul komik tertentu. Ganti <code>Slug</code> dengan judul manhwa/komik berdasarkan Slug dari API <b>all_manhwa</b>. Untuk Type ganti dengan Type atau chapters.</p>
 
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse text-sm">
@@ -169,8 +193,21 @@ export default function ApiDocs() {
                         </button>
 
                         {/* HASIL JSON */}
-                        <div className="mt-6">
-                            <h3 className="text-sm font-bold text-gray-500 mb-2">Response JSON:</h3>
+                        <div className="mt-6 relative">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="text-sm font-bold text-gray-500">Response JSON:</h3>
+                                {result && !error && (
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+                                            alert("JSON Berhasil di Copy!");
+                                        }}
+                                        className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded transition-colors"
+                                    >
+                                        📋 Copy JSON
+                                    </button>
+                                )}
+                            </div>
 
                             {error && (
                                 <div className="bg-red-100 text-red-700 p-4 rounded border border-red-200 text-sm">

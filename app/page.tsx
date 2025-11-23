@@ -129,7 +129,7 @@ export default function Home() {
             </nav>
 
             {/* --- HERO --- */}
-            <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-12 px-4 text-center shadow-md">
+            <header className="bg-linear-to-r from-blue-600 to-blue-700 text-white py-12 px-4 text-center shadow-md">
                 <h2 className="text-3xl md:text-4xl font-extrabold mb-3">Temukan Bacaan Favoritmu</h2>
                 <p className="text-blue-100 text-lg max-w-2xl mx-auto">Koleksi manhwa terlengkap dengan update chapter terbaru setiap hari.</p>
             </header>
