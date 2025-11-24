@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { trackSearch, trackError, trackManhwaClick, trackPagination } from "@/lib/gtm";
 
 // 1. Update Interface sesuai JSON aslimu
 interface Chapter {
@@ -43,6 +44,7 @@ export default function Home() {
                 }
             } catch (error) {
                 console.error(error);
+                trackError("api_fetch", error instanceof Error ? error.message : "Failed to fetch manhwa data");
             } finally {
                 setLoading(false);
             }
@@ -64,6 +66,18 @@ export default function Home() {
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm]);
+
+    // Track search with debounce
+    useEffect(() => {
+        if (searchTerm) {
+            // Debounce untuk tidak track setiap keystroke
+            const timer = setTimeout(() => {
+                trackSearch(searchTerm, filteredManhwas.length);
+            }, 500);
+
+            return () => clearTimeout(timer);
+        }
+    }, [searchTerm, filteredManhwas.length]);
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
@@ -155,8 +169,13 @@ export default function Home() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8">
                     {currentManhwas.map((manhwa, index) => (
                         <Link
-                            href={`/detail/${manhwa.slug}`} // Link ke detail page
+                            href={`/detail/${manhwa.slug}`}
                             key={index}
+                            onClick={() => trackManhwaClick({
+                                title: manhwa.title,
+                                slug: manhwa.slug,
+                                position: startIndex + index + 1
+                            })}
                             className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
                         >
                             {/* Image Cover */}
@@ -228,7 +247,11 @@ export default function Home() {
                         <div className="flex items-center gap-2">
                             {/* Previous Button */}
                             <button
-                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                onClick={() => {
+                                    const newPage = Math.max(currentPage - 1, 1);
+                                    setCurrentPage(newPage);
+                                    trackPagination(newPage, totalPages);
+                                }}
                                 disabled={currentPage === 1}
                                 className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
@@ -247,7 +270,10 @@ export default function Home() {
                                             {/* Show ellipsis if there's a gap */}
                                             {index > 0 && page - array[index - 1] > 1 && <span className="px-2 text-gray-400">...</span>}
                                             <button
-                                                onClick={() => setCurrentPage(page)}
+                                                onClick={() => {
+                                                    setCurrentPage(page);
+                                                    trackPagination(page, totalPages);
+                                                }}
                                                 className={`w-10 h-10 rounded-lg font-medium transition-all ${currentPage === page ? "bg-blue-600 text-white shadow-md" : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"}`}
                                             >
                                                 {page}
@@ -258,7 +284,11 @@ export default function Home() {
 
                             {/* Next Button */}
                             <button
-                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                onClick={() => {
+                                    const newPage = Math.min(currentPage + 1, totalPages);
+                                    setCurrentPage(newPage);
+                                    trackPagination(newPage, totalPages);
+                                }}
                                 disabled={currentPage === totalPages}
                                 className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
