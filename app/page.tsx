@@ -27,6 +27,7 @@ export default function Home() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
+    const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
     const itemsPerPage = 20;
 
     // 2. Fetch Data
@@ -56,11 +57,33 @@ export default function Home() {
     // 3. Filter Pencarian
     const filteredManhwas = manhwas.filter((item) => item.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    // 4. Pagination Calculations
-    const totalPages = Math.ceil(filteredManhwas.length / itemsPerPage);
+    // 4. Sort berdasarkan waktu rilis chapter terbaru
+    const sortedManhwas = [...filteredManhwas].sort((a, b) => {
+        // Ambil waktu rilis chapter terbaru (index 0 adalah yang paling baru)
+        const aLatestTime = a.latestChapters && a.latestChapters.length > 0 ? a.latestChapters[0].waktu_rilis : "";
+        const bLatestTime = b.latestChapters && b.latestChapters.length > 0 ? b.latestChapters[0].waktu_rilis : "";
+
+        // Jika salah satu tidak punya chapter, taruh di bawah
+        if (!aLatestTime) return 1;
+        if (!bLatestTime) return -1;
+
+        // Parse ISO 8601 timestamp (format: "2025-11-20T20:19:22")
+        const aTimestamp = new Date(aLatestTime).getTime();
+        const bTimestamp = new Date(bLatestTime).getTime();
+
+        // Jika parsing gagal, taruh di bawah
+        if (isNaN(aTimestamp)) return 1;
+        if (isNaN(bTimestamp)) return -1;
+
+        // Sort: newest first (larger timestamp = more recent)
+        return sortOrder === "newest" ? bTimestamp - aTimestamp : aTimestamp - bTimestamp;
+    });
+
+    // 5. Pagination Calculations
+    const totalPages = Math.ceil(sortedManhwas.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const currentManhwas = filteredManhwas.slice(startIndex, endIndex);
+    const currentManhwas = sortedManhwas.slice(startIndex, endIndex);
 
     // Reset to page 1 when search term changes
     useEffect(() => {
@@ -72,12 +95,12 @@ export default function Home() {
         if (searchTerm) {
             // Debounce untuk tidak track setiap keystroke
             const timer = setTimeout(() => {
-                trackSearch(searchTerm, filteredManhwas.length);
+                trackSearch(searchTerm, sortedManhwas.length);
             }, 500);
 
             return () => clearTimeout(timer);
         }
-    }, [searchTerm, filteredManhwas.length]);
+    }, [searchTerm, sortedManhwas.length]);
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
@@ -159,7 +182,7 @@ export default function Home() {
                 )}
 
                 {/* Empty State */}
-                {!loading && filteredManhwas.length === 0 && (
+                {!loading && sortedManhwas.length === 0 && (
                     <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
                         <p className="text-gray-400 text-lg">Komik "{searchTerm}" tidak ditemukan.</p>
                     </div>
@@ -236,11 +259,11 @@ export default function Home() {
                 </div>
 
                 {/* PAGINATION CONTROLS */}
-                {!loading && filteredManhwas.length > 0 && totalPages > 1 && (
+                {!loading && sortedManhwas.length > 0 && totalPages > 1 && (
                     <div className="mt-12 flex flex-col items-center gap-4">
                         {/* Page Info */}
                         <p className="text-sm text-gray-600">
-                            Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredManhwas.length)} dari {filteredManhwas.length} manhwa
+                            Menampilkan {startIndex + 1}-{Math.min(endIndex, sortedManhwas.length)} dari {sortedManhwas.length} manhwa
                         </p>
 
                         {/* Pagination Buttons */}
