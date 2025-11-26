@@ -9,6 +9,7 @@ import HeroSlider from "@/components/home/HeroSlider";
 import ManhwaGrid from "@/components/home/ManhwaGrid";
 import Pagination from "@/components/ui/Pagination";
 import { BannerAd, ResponsiveAd } from "@/components/AdComponents";
+import ReadingHistory from "@/components/home/ReadingHistory";
 
 export default function Home() {
     const { manhwas, loading } = useManhwaData();
@@ -73,49 +74,61 @@ export default function Home() {
                 <BannerAd className="mb-6" />
             </div>
 
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 py-12">
-                {/* Loading State */}
-                {loading && (
-                    <div className="flex flex-col justify-center items-center h-64 space-y-4">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                        <p className="text-gray-500 animate-pulse">Sedang memuat komik...</p>
-                    </div>
-                )}
-
-                {/* Empty State */}
-                {!loading && sortedManhwas.length === 0 && (
-                    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                        <p className="text-gray-400 text-lg">Komik "{searchTerm}" tidak ditemukan.</p>
-                    </div>
-                )}
-
-                {/* Manhwa Grid */}
-                {!loading && sortedManhwas.length > 0 && (
-                    <>
-                        <ManhwaGrid manhwas={currentManhwas} startIndex={startIndex} />
-
-                        {/* Responsive Ad - After Grid */}
-                        <ResponsiveAd className="my-8" />
-
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <Pagination
-                                currentPage={currentPage}
-                                totalPages={totalPages}
-                                startIndex={startIndex}
-                                endIndex={endIndex}
-                                totalItems={sortedManhwas.length}
-                                onPageChange={setCurrentPage}
-                            />
+            {/* Main Content with Sidebar */}
+            <div className="max-w-7xl mx-auto px-4 py-12">
+                <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Left Column - Main Content */}
+                    <main className="flex-1 min-w-0">
+                        {/* Loading State */}
+                        {loading && (
+                            <div className="flex flex-col justify-center items-center h-64 space-y-4">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                                <p className="text-gray-500 animate-pulse">Sedang memuat komik...</p>
+                            </div>
                         )}
-                    </>
-                )}
-            </main>
+
+                        {/* Empty State */}
+                        {!loading && sortedManhwas.length === 0 && (
+                            <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                                <p className="text-gray-400 text-lg">Komik "{searchTerm}" tidak ditemukan.</p>
+                            </div>
+                        )}
+
+                        {/* Manhwa Grid */}
+                        {!loading && sortedManhwas.length > 0 && (
+                            <>
+                                <ManhwaGrid manhwas={currentManhwas} startIndex={startIndex} />
+
+                                {/* Responsive Ad - After Grid */}
+                                <ResponsiveAd className="my-8" />
+
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="flex justify-center w-full">
+                                        <Pagination
+                                            currentPage={currentPage}
+                                            totalPages={totalPages}
+                                            startIndex={startIndex}
+                                            endIndex={endIndex}
+                                            totalItems={sortedManhwas.length}
+                                            onPageChange={setCurrentPage}
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </main>
+
+                    {/* Right Column - Reading History Sidebar */}
+                    <aside className="w-full lg:w-80 shrink-0 self-start">
+                        <ReadingHistory />
+                    </aside>
+                </div>
+            </div>
 
             {/* Banner Ad - Before Footer */}
             <div className="max-w-7xl mx-auto px-4 pb-6">
-                <BannerAd className="mb-6" />
+                <ResponsiveAd className="mb-6" />
             </div>
 
             {/* Footer */}

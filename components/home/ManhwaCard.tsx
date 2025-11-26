@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Manhwa } from "@/types/manhwa";
 import { trackManhwaClick } from "@/lib/gtm";
+import { addToReadingHistory } from "@/lib/readingHistory";
 
 interface ManhwaCardProps {
     manhwa: Manhwa;
@@ -10,14 +11,29 @@ interface ManhwaCardProps {
 }
 
 export default function ManhwaCard({ manhwa, position }: ManhwaCardProps) {
+    const handleClick = () => {
+        // Track analytics
+        trackManhwaClick({
+            title: manhwa.title,
+            slug: manhwa.slug,
+            position
+        });
+
+        // Add to reading history
+        addToReadingHistory({
+            slug: manhwa.slug,
+            title: manhwa.title,
+            cover: manhwa.cover_url,
+            lastChapter: manhwa.latestChapters && manhwa.latestChapters.length > 0
+                ? manhwa.latestChapters[0].title
+                : 'Chapter 1',
+        });
+    };
+
     return (
         <Link
             href={`/detail/${manhwa.slug}`}
-            onClick={() => trackManhwaClick({
-                title: manhwa.title,
-                slug: manhwa.slug,
-                position
-            })}
+            onClick={handleClick}
             className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
         >
             {/* Image Cover */}
