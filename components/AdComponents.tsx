@@ -7,7 +7,7 @@ import AdSense from './AdSense';
 export function BannerAd({ className = '' }: { className?: string }) {
     return (
         <AdSense
-            adSlot={process.env.NEXT_PUBLIC_ADSENSE_BANNER_SLOT || ''}
+            adSlot={process.env.NEXT_PUBLIC_ADSENSE_BANNER_SLOT || '3143095709'}
             adFormat="horizontal"
             className={className}
             style={{ minHeight: '90px' }}
@@ -67,7 +67,7 @@ export function RectangleAd({ className = '' }: { className?: string }) {
 export function ResponsiveAd({ className = '' }: { className?: string }) {
     return (
         <AdSense
-            adSlot={process.env.NEXT_PUBLIC_ADSENSE_RESPONSIVE_SLOT || ''}
+            adSlot={process.env.NEXT_PUBLIC_ADSENSE_RESPONSIVE_SLOT || '4772690386'}
             adFormat="auto"
             fullWidthResponsive={true}
             className={className}
