@@ -73,6 +73,9 @@ export const metadata: Metadata = {
   verification: {
     google: "8Gs5Kg6Lk4O_FUqCcK0lzf4jkX8Kh7owXC7uh_ko2a0",
   },
+  other: {
+    "google-adsense-account": "ca-pub-5770900240773327",
+  },
 };
 
 export default function RootLayout({
@@ -94,10 +97,13 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* Google AdSense */}
+        {/* Google AdSense Verification */}
+        <meta name="google-adsense-account" content="ca-pub-5770900240773327" />
+
+        {/* Google AdSense Script */}
         <Script
           async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}`}
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5770900240773327"
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
