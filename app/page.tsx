@@ -8,6 +8,7 @@ import Navbar from "@/components/ui/Navbar";
 import HeroSlider from "@/components/home/HeroSlider";
 import ManhwaGrid from "@/components/home/ManhwaGrid";
 import Pagination from "@/components/ui/Pagination";
+import { BannerAd, ResponsiveAd } from "@/components/AdComponents";
 
 export default function Home() {
     const { manhwas, loading } = useManhwaData();
@@ -67,6 +68,11 @@ export default function Home() {
             {/* Hero Slider */}
             <HeroSlider manhwas={manhwas} />
 
+            {/* Banner Ad - After Hero */}
+            <div className="max-w-7xl mx-auto px-4 pt-6">
+                <BannerAd className="mb-6" />
+            </div>
+
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-4 py-12">
                 {/* Loading State */}
@@ -89,6 +95,9 @@ export default function Home() {
                     <>
                         <ManhwaGrid manhwas={currentManhwas} startIndex={startIndex} />
 
+                        {/* Responsive Ad - After Grid */}
+                        <ResponsiveAd className="my-8" />
+
                         {/* Pagination */}
                         {totalPages > 1 && (
                             <Pagination
@@ -103,6 +112,11 @@ export default function Home() {
                     </>
                 )}
             </main>
+
+            {/* Banner Ad - Before Footer */}
+            <div className="max-w-7xl mx-auto px-4 pb-6">
+                <BannerAd className="mb-6" />
+            </div>
 
             {/* Footer */}
             <footer className="bg-white border-t py-8 text-center text-gray-500 text-sm mt-auto">
