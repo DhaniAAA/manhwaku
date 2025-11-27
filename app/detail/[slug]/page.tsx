@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { RectangleAd, ResponsiveAd } from "@/components/AdComponents";
-
+import { BannerAd, ResponsiveAd } from "@/components/AdComponents";
 // --- 1. Definisi Interface (Disesuaikan dengan JSON kamu) ---
 
 interface Metadata {
@@ -360,7 +359,7 @@ export default function ManhwaDetail() {
                   {/* Ad iklan Di bawah daftar chapter */}
                   {chapters.length > 10 && (
                     <div className="mt-6 border-t pt-6 flex justify-center">
-                      <RectangleAd />
+                      <BannerAd />
                     </div>
                   )}
 

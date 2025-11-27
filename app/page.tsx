@@ -8,7 +8,7 @@ import Navbar from "@/components/ui/Navbar";
 import HeroSlider from "@/components/home/HeroSlider";
 import ManhwaGrid from "@/components/home/ManhwaGrid";
 import Pagination from "@/components/ui/Pagination";
-import { BannerAd, FloatingAd, NativeBannerAd, ResponsiveAd } from "@/components/AdComponents";
+import { FloatingAd, ResponsiveAd } from "@/components/AdComponents";
 import ReadingHistory from "@/components/home/ReadingHistory";
 
 export default function Home() {
@@ -73,10 +73,18 @@ export default function Home() {
             <HeroSlider manhwas={manhwas} />
 
             {/* Banner Ad - After Hero */}
-            <div className="max-w-7xl mx-auto px-4 mt-6">
+            <div className="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ResponsiveAd />
                 <ResponsiveAd />
             </div>
 
+            {/* Banner Ad - Iklan Sponsor */}
+            <div className="max-w-7xl mx-auto px-4 mt-6">
+                <div className="w-full h-32 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors">
+                    <span className="font-semibold text-lg">Space Iklan Tersedia</span>
+                    <span className="text-sm mt-1 text-center text-gray-600 ">Hubungi admin untuk pasang iklan di sini Email: 01windsurf@gmail.com</span>
+                </div>
+            </div>
             {/* Main Content with Sidebar */}
             <div className="max-w-7xl mx-auto px-4 py-12">
                 <div className="flex flex-col lg:flex-row gap-6">
@@ -101,11 +109,6 @@ export default function Home() {
                         {!loading && sortedManhwas.length > 0 && (
                             <>
                                 <ManhwaGrid manhwas={currentManhwas} startIndex={startIndex} />
-
-                                {/* Responsive Ad - After Grid */}
-                                <div className="my-8">
-                                    <NativeBannerAd />
-                                </div>
 
                                 {/* Pagination */}
                                 {totalPages > 1 && (
@@ -132,9 +135,9 @@ export default function Home() {
             </div>
 
             {/* Banner Ad - Before Footer */}
-            <div className="max-w-7xl mx-auto px-4 mb-8">
+            {/* <div className="max-w-7xl mx-auto px-4 mb-8">
                 <ResponsiveAd />
-            </div>
+            </div> */}
 
             {/* Footer */}
             <footer className="bg-white border-t py-8 text-center text-gray-500 text-sm mt-auto">
