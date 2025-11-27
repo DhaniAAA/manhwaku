@@ -73,9 +73,6 @@ export const metadata: Metadata = {
   verification: {
     google: "8Gs5Kg6Lk4O_FUqCcK0lzf4jkX8Kh7owXC7uh_ko2a0",
   },
-  other: {
-    "google-adsense-account": "ca-pub-5770900240773327",
-  },
 };
 
 export default function RootLayout({
@@ -97,14 +94,10 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* Google AdSense Verification */}
-        <meta name="google-adsense-account" content="ca-pub-5770900240773327" />
-
-        {/* Google AdSense Script */}
+        {/* Adsterra Ad Script */}
         <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5770900240773327"
-          crossOrigin="anonymous"
+          type="text/javascript"
+          src="//pl28143032.effectivegatecpm.com/65/67/9c/65679c1ac45211d8dfb1ac2bf487ebbe.js"
           strategy="afterInteractive"
         />
       </head>

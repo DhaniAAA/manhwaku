@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { NativeBannerAd } from "@/components/AdComponents";
 
 // --- Interface Data ---
 interface ChapterItem {
@@ -199,6 +200,11 @@ export default function ReadPage() {
           ) : (
             <div className="px-6 py-3 rounded-full bg-gray-800 text-gray-500 cursor-not-allowed">Sudah Chapter Terakhir</div>
           )}
+        </div>
+
+        {/* Native Banner Ad - Looks like content recommendations */}
+        <div className="mt-8">
+          <NativeBannerAd className="rounded-lg overflow-hidden" />
         </div>
       </div>
     </div>

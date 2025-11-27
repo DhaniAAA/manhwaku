@@ -1,14 +1,14 @@
-import AdSense from './AdSense';
+import Adsterra from './Adsterra';
 
 /**
- * Banner Ad - Horizontal banner ad (typically 728x90 or responsive)
+ * Banner Ad - Horizontal banner ad
  * Best placed at the top or bottom of pages
  */
 export function BannerAd({ className = '' }: { className?: string }) {
     return (
-        <AdSense
-            adSlot={process.env.NEXT_PUBLIC_ADSENSE_BANNER_SLOT || '3143095709'}
-            adFormat="horizontal"
+        <Adsterra
+            adKey="65679c1ac45211d8dfb1ac2bf487ebbe"
+            adType="social-bar"
             className={className}
             style={{ minHeight: '90px' }}
         />
@@ -16,14 +16,14 @@ export function BannerAd({ className = '' }: { className?: string }) {
 }
 
 /**
- * Sidebar Ad - Vertical ad for sidebars (typically 300x600 or 160x600)
+ * Sidebar Ad - Vertical ad for sidebars
  * Best placed in sidebar areas
  */
 export function SidebarAd({ className = '' }: { className?: string }) {
     return (
-        <AdSense
-            adSlot={process.env.NEXT_PUBLIC_ADSENSE_SIDEBAR_SLOT || ''}
-            adFormat="vertical"
+        <Adsterra
+            adKey="65679c1ac45211d8dfb1ac2bf487ebbe"
+            adType="social-bar"
             className={className}
             style={{ minHeight: '600px' }}
         />
@@ -36,9 +36,9 @@ export function SidebarAd({ className = '' }: { className?: string }) {
  */
 export function InArticleAd({ className = '' }: { className?: string }) {
     return (
-        <AdSense
-            adSlot={process.env.NEXT_PUBLIC_ADSENSE_ARTICLE_SLOT || ''}
-            adFormat="fluid"
+        <Adsterra
+            adKey="65679c1ac45211d8dfb1ac2bf487ebbe"
+            adType="social-bar"
             className={className}
             style={{ minHeight: '250px' }}
         />
@@ -46,14 +46,14 @@ export function InArticleAd({ className = '' }: { className?: string }) {
 }
 
 /**
- * Rectangle Ad - Medium rectangle ad (typically 300x250)
+ * Rectangle Ad - Medium rectangle ad
  * Versatile ad unit that works well in various positions
  */
 export function RectangleAd({ className = '' }: { className?: string }) {
     return (
-        <AdSense
-            adSlot={process.env.NEXT_PUBLIC_ADSENSE_RECTANGLE_SLOT || ''}
-            adFormat="rectangle"
+        <Adsterra
+            adKey="65679c1ac45211d8dfb1ac2bf487ebbe"
+            adType="social-bar"
             className={className}
             style={{ minHeight: '250px', minWidth: '300px' }}
         />
@@ -66,12 +66,26 @@ export function RectangleAd({ className = '' }: { className?: string }) {
  */
 export function ResponsiveAd({ className = '' }: { className?: string }) {
     return (
-        <AdSense
-            adSlot={process.env.NEXT_PUBLIC_ADSENSE_RESPONSIVE_SLOT || '4772690386'}
-            adFormat="auto"
-            fullWidthResponsive={true}
+        <Adsterra
+            adKey="65679c1ac45211d8dfb1ac2bf487ebbe"
+            adType="social-bar"
             className={className}
             style={{ minHeight: '100px' }}
+        />
+    );
+}
+
+/**
+ * Native Banner Ad - Native ad that looks like content recommendations
+ * Best placed below navigation buttons or within content flow
+ */
+export function NativeBannerAd({ className = '' }: { className?: string }) {
+    return (
+        <Adsterra
+            adKey="65679c1ac45211d8dfb1ac2bf487ebbe"
+            adType="banner"
+            className={className}
+            style={{ minHeight: '280px', width: '100%' }}
         />
     );
 }
