@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { RectangleAd, ResponsiveAd } from "@/components/AdComponents";
 
 // --- 1. Definisi Interface (Disesuaikan dengan JSON kamu) ---
 
@@ -203,6 +204,11 @@ export default function ManhwaDetail() {
           </div>
         </div>
 
+        {/*Ad iklan Di antara Info dan Daftar Chapter */}
+        <div className="mb-8 flex justify-center">
+          <ResponsiveAd />
+        </div>
+
         {/* --- CHAPTER LIST --- */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           {/* Header with Controls */}
@@ -350,6 +356,14 @@ export default function ManhwaDetail() {
                       »»
                     </button>
                   </div>
+
+                  {/* Ad iklan Di bawah daftar chapter */}
+                  {chapters.length > 10 && (
+                    <div className="mt-6 border-t pt-6 flex justify-center">
+                      <RectangleAd />
+                    </div>
+                  )}
+
                 </div>
               )}
             </>

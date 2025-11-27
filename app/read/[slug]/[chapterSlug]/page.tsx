@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { NativeBannerAd } from "@/components/AdComponents";
+import { NativeBannerAd, ResponsiveAd } from "@/components/AdComponents";
 
 // --- Interface Data ---
 interface ChapterItem {
@@ -156,8 +156,15 @@ export default function ReadPage() {
             >
               Next →
             </Link>
+
+
           </div>
         </div>
+      </div>
+
+      {/* Ad Iklan Di bawah Prev dan Next */}
+      <div className="max-w-3xl mx-auto mt-4 mb-2">
+        <ResponsiveAd className="bg-gray-800 rounded-lg" />
       </div>
 
       {/* AREA BACA (GAMBAR) */}
@@ -204,8 +211,10 @@ export default function ReadPage() {
 
         {/* Native Banner Ad - Looks like content recommendations */}
         <div className="mt-8">
-          <NativeBannerAd className="rounded-lg overflow-hidden" />
+          <p className="text-xs text-gray-500 mb-2">Sponsored - Iklan Di Bawah Sini</p>
+          <NativeBannerAd className="rounded-lg overflow-hidden bg-gray-800" />
         </div>
+
       </div>
     </div>
   );

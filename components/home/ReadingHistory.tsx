@@ -138,7 +138,7 @@ export default function ReadingHistory() {
                             className="group border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
                         >
                             <div className="p-3 flex gap-3">
-                                <Link href={`/manhwa/${item.slug}`} className="shrink-0">
+                                <Link href={`/detail/${item.slug}`} className="shrink-0">
                                     <div className="relative w-12 h-16 rounded overflow-hidden shadow-sm">
                                         <Image
                                             src={item.cover}
@@ -156,7 +156,7 @@ export default function ReadingHistory() {
                                 </Link>
 
                                 <div className="flex-1 min-w-0">
-                                    <Link href={`/manhwa/${item.slug}`}>
+                                    <Link href={`/detail/${item.slug}`}>
                                         <h3 className="font-semibold text-sm text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors mb-1">
                                             {item.title}
                                         </h3>

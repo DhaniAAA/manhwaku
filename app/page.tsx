@@ -8,7 +8,7 @@ import Navbar from "@/components/ui/Navbar";
 import HeroSlider from "@/components/home/HeroSlider";
 import ManhwaGrid from "@/components/home/ManhwaGrid";
 import Pagination from "@/components/ui/Pagination";
-import { BannerAd, ResponsiveAd } from "@/components/AdComponents";
+import { BannerAd, FloatingAd, NativeBannerAd, ResponsiveAd } from "@/components/AdComponents";
 import ReadingHistory from "@/components/home/ReadingHistory";
 
 export default function Home() {
@@ -66,12 +66,15 @@ export default function Home() {
             {/* Navbar */}
             <Navbar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 
+            {/* Floating Ad */}
+            <FloatingAd />
+
             {/* Hero Slider */}
             <HeroSlider manhwas={manhwas} />
 
             {/* Banner Ad - After Hero */}
-            <div className="max-w-7xl mx-auto px-4 pt-6">
-                <BannerAd className="mb-6" />
+            <div className="max-w-7xl mx-auto px-4 mt-6">
+                <ResponsiveAd />
             </div>
 
             {/* Main Content with Sidebar */}
@@ -100,7 +103,9 @@ export default function Home() {
                                 <ManhwaGrid manhwas={currentManhwas} startIndex={startIndex} />
 
                                 {/* Responsive Ad - After Grid */}
-                                <ResponsiveAd className="my-8" />
+                                <div className="my-8">
+                                    <NativeBannerAd />
+                                </div>
 
                                 {/* Pagination */}
                                 {totalPages > 1 && (
@@ -127,8 +132,8 @@ export default function Home() {
             </div>
 
             {/* Banner Ad - Before Footer */}
-            <div className="max-w-7xl mx-auto px-4 pb-6">
-                <ResponsiveAd className="mb-6" />
+            <div className="max-w-7xl mx-auto px-4 mb-8">
+                <ResponsiveAd />
             </div>
 
             {/* Footer */}

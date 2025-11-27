@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { FloatingAd } from "@/components/AdComponents";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -109,6 +111,8 @@ export default function RootLayout({
           src="https://pl28143032.effectivegatecpm.com/65/67/9c/65679c1ac45211d8dfb1ac2bf487ebbe.js"
           strategy="afterInteractive"
         />
+
+        <FloatingAd />
 
         {/* Google Tag Manager (NoScript) - Wajib di Body */}
         <noscript>
