@@ -29,6 +29,13 @@ export const metadata: Metadata = {
     "webtoon",
     "manhwa terbaru",
     "baca komik online",
+    "komikcast",
+    "komiku",
+    "komikindo",
+    "komikid",
+    "manhwaindo",
+    "kiryuu",
+    "shinigami",
   ],
   authors: [{ name: "ManhwaKu" }],
   creator: "ManhwaKu",
@@ -42,7 +49,7 @@ export const metadata: Metadata = {
     locale: "id_ID",
     url: "/",
     title: "ManhwaKu - Baca Manhwa Online Gratis Terlengkap",
-    description: "Baca manhwa online gratis terlengkap dengan update chapter terbaru setiap hari. Koleksi manhwa action, romance, fantasy, dan genre lainnya.",
+    description: "Baca manhwa online gratis terlengkap dengan update chapter terbaru setiap hari.",
     siteName: "ManhwaKu",
     images: [
       {
@@ -81,9 +88,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        {/* Google Tag Manager */}
+    <html lang="id">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+
+        {/* Google Tag Manager (Script) */}
         <Script id="google-tag-manager" strategy="afterInteractive">
           {`
             (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -96,13 +104,13 @@ export default function RootLayout({
 
         {/* Adsterra Ad Script */}
         <Script
+          id="adsterra-social-bar"
           type="text/javascript"
-          src="//pl28143032.effectivegatecpm.com/65/67/9c/65679c1ac45211d8dfb1ac2bf487ebbe.js"
+          src="https://pl28143032.effectivegatecpm.com/65/67/9c/65679c1ac45211d8dfb1ac2bf487ebbe.js"
           strategy="afterInteractive"
         />
-      </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {/* Google Tag Manager (noscript) */}
+
+        {/* Google Tag Manager (NoScript) - Wajib di Body */}
         <noscript>
           <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-PQC88CCW"
@@ -111,6 +119,7 @@ export default function RootLayout({
             style={{ display: 'none', visibility: 'hidden' }}
           />
         </noscript>
+
         {children}
       </body>
     </html>
