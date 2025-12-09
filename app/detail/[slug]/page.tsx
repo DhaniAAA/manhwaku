@@ -223,13 +223,13 @@ export default function ManhwaDetail() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSortOrder("newest")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sortOrder === "newest" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sortOrder === "newest" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer"}`}
                   >
                     Terbaru
                   </button>
                   <button
                     onClick={() => setSortOrder("oldest")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sortOrder === "oldest" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sortOrder === "oldest" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer"}`}
                   >
                     Terlama
                   </button>
@@ -243,7 +243,7 @@ export default function ManhwaDetail() {
               <select
                 value={itemsPerPage}
                 onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white cursor-pointer"
               >
                 <option value={10}>10 per halaman</option>
                 <option value={20}>20 per halaman</option>
@@ -282,22 +282,25 @@ export default function ManhwaDetail() {
 
               {/* Pagination Controls */}
               {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
-                  {/* Page Info */}
-                  <div className="text-sm text-gray-600">
-                    Halaman <span className="font-semibold">{currentPage}</span> dari <span className="font-semibold">{totalPages}</span>
-                    <span className="mx-2">•</span>
-                    Menampilkan <span className="font-semibold">{startIndex + 1}</span> - <span className="font-semibold">{Math.min(endIndex, sortedChapters.length)}</span> dari <span className="font-semibold">{sortedChapters.length}</span>{" "}
-                    chapter
+                <div className="flex flex-col items-center gap-4 pt-4 border-t px-2">
+                  {/* Page Info - Simplified for mobile */}
+                  <div className="text-xs sm:text-sm text-gray-600 text-center">
+                    <span className="block sm:inline">
+                      Halaman <span className="font-semibold">{currentPage}</span> dari <span className="font-semibold">{totalPages}</span>
+                    </span>
+                    <span className="hidden sm:inline mx-2">•</span>
+                    <span className="block sm:inline text-gray-500">
+                      {startIndex + 1} - {Math.min(endIndex, sortedChapters.length)} dari {sortedChapters.length} chapter
+                    </span>
                   </div>
 
-                  {/* Pagination Buttons */}
-                  <div className="flex items-center gap-2">
-                    {/* First Page */}
+                  {/* Pagination Buttons - Mobile Optimized */}
+                  <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap w-full max-w-full">
+                    {/* First Page - Hidden on mobile */}
                     <button
                       onClick={() => setCurrentPage(1)}
                       disabled={currentPage === 1}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${currentPage === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`hidden sm:block px-3 py-2 rounded-lg text-sm font-medium transition-all ${currentPage === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer"}`}
                     >
                       ««
                     </button>
@@ -306,21 +309,23 @@ export default function ManhwaDetail() {
                     <button
                       onClick={() => setCurrentPage(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${currentPage === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${currentPage === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer"}`}
                     >
-                      « Prev
+                      <span className="sm:hidden">«</span>
+                      <span className="hidden sm:inline">« Prev</span>
                     </button>
 
-                    {/* Page Numbers */}
+                    {/* Page Numbers - Always show 5 */}
                     <div className="flex gap-1">
                       {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                         let pageNum;
-                        if (totalPages <= 5) {
+                        const maxVisible = 5;
+                        if (totalPages <= maxVisible) {
                           pageNum = i + 1;
                         } else if (currentPage <= 3) {
                           pageNum = i + 1;
                         } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
+                          pageNum = totalPages - maxVisible + 1 + i;
                         } else {
                           pageNum = currentPage - 2 + i;
                         }
@@ -329,7 +334,7 @@ export default function ManhwaDetail() {
                           <button
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${currentPage === pageNum ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                            className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${currentPage === pageNum ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                           >
                             {pageNum}
                           </button>
@@ -341,28 +346,28 @@ export default function ManhwaDetail() {
                     <button
                       onClick={() => setCurrentPage(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer"}`}
                     >
-                      Next »
+                      <span className="sm:hidden">»</span>
+                      <span className="hidden sm:inline">Next »</span>
                     </button>
 
-                    {/* Last Page */}
+                    {/* Last Page - Hidden on mobile */}
                     <button
                       onClick={() => setCurrentPage(totalPages)}
                       disabled={currentPage === totalPages}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`hidden sm:block px-3 py-2 rounded-lg text-sm font-medium transition-all ${currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer"}`}
                     >
                       »»
                     </button>
                   </div>
+                </div>
+              )}
 
-                  {/* Ad iklan Di bawah daftar chapter */}
-                  {chapters.length > 10 && (
-                    <div className="mt-6 border-t pt-6 flex justify-center">
-                      <BannerAd />
-                    </div>
-                  )}
-
+              {/* Ad iklan Di bawah daftar chapter */}
+              {totalPages > 1 && chapters.length > 10 && (
+                <div className="mt-6 border-t pt-6 flex justify-center">
+                  <BannerAd />
                 </div>
               )}
             </>
