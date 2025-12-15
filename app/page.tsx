@@ -67,7 +67,7 @@ export default function Home() {
             <Navbar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 
             {/* Floating Ad */}
-            <FloatingAd />
+            {/* <FloatingAd /> */}
 
             {/* Hero Slider */}
             <HeroSlider manhwas={manhwas} />
