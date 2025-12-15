@@ -12,7 +12,7 @@ interface AdsterraProps {
 /**
  * Adsterra Ad Component
  *
- * @param adKey - Your Adsterra ad key (e.g., "65679c1ac45211d8dfb1ac2bf487ebbe")
+ * @param adKey - Your Adsterra ad key
  * @param adType - Ad type (default: "banner")
  * @param style - Custom inline styles
  * @param className - Custom CSS classes

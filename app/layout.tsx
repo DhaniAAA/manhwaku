@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-import { FloatingAd } from "@/components/AdComponents";
+// import { FloatingAd } from "@/components/AdComponents";
 
 
 const geistSans = Geist({
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   authors: [{ name: "ManhwaKu" }],
   creator: "ManhwaKu",
   publisher: "ManhwaKu",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.manhwaku.biz.id"),
   alternates: {
     canonical: "/",
   },
@@ -112,7 +112,7 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
 
-        <FloatingAd />
+        {/* <FloatingAd /> */}
 
         {/* Google Tag Manager (NoScript) - Wajib di Body */}
         <noscript>
