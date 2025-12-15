@@ -14,7 +14,7 @@ export const SLIDER_AUTOPLAY_INTERVAL = 5000;
  * Jumlah manhwa rekomendasi yang ditampilkan di hero slider
  * Manhwa dipilih berdasarkan rating tertinggi
  */
-export const RECOMMENDED_MANHWA_COUNT = 5;
+export const RECOMMENDED_MANHWA_COUNT = 10;
 
 /**
  * Delay untuk debounce search input (dalam milliseconds)

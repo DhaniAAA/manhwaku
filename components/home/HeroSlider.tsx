@@ -11,24 +11,28 @@ interface HeroSliderProps {
 
 export default function HeroSlider({ manhwas }: HeroSliderProps) {
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [sliderManhwas, setSliderManhwas] = useState<Manhwa[]>([]);
 
-    // Get recommended manhwa (highest rated)
-    const recommendedManhwas = [...manhwas]
-        .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating))
-        .slice(0, RECOMMENDED_MANHWA_COUNT);
+    // Randomize manhwas when data is available
+    useEffect(() => {
+        if (manhwas.length > 0) {
+            const shuffled = [...manhwas].sort(() => 0.5 - Math.random());
+            setSliderManhwas(shuffled.slice(0, RECOMMENDED_MANHWA_COUNT));
+        }
+    }, [manhwas]);
 
     // Auto-slide carousel
     useEffect(() => {
-        if (recommendedManhwas.length === 0) return;
+        if (sliderManhwas.length === 0) return;
 
         const interval = setInterval(() => {
-            setCurrentSlide((prev) => (prev + 1) % recommendedManhwas.length);
+            setCurrentSlide((prev) => (prev + 1) % sliderManhwas.length);
         }, SLIDER_AUTOPLAY_INTERVAL);
 
         return () => clearInterval(interval);
-    }, [recommendedManhwas.length]);
+    }, [sliderManhwas.length]);
 
-    if (recommendedManhwas.length === 0) {
+    if (sliderManhwas.length === 0) {
         return (
             <div className="relative overflow-hidden bg-linear-to-br from-green-200 via-clay-100 to-black h-[500px] md:h-[600px] flex items-center justify-center">
                 <div className="text-white text-center">
@@ -43,7 +47,7 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
         <div className="relative overflow-hidden bg-linear-to-br from-green-200 via-clay-100 to-black">
             {/* Slider Container */}
             <div className="relative h-[500px] md:h-[600px]">
-                {recommendedManhwas.map((manhwa, index) => (
+                {sliderManhwas.map((manhwa, index) => (
                     <div
                         key={index}
                         className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
@@ -145,10 +149,10 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
             </div>
 
             {/* Navigation Arrows */}
-            {recommendedManhwas.length > 1 && (
+            {sliderManhwas.length > 1 && (
                 <>
                     <button
-                        onClick={() => setCurrentSlide((prev) => (prev - 1 + recommendedManhwas.length) % recommendedManhwas.length)}
+                        onClick={() => setCurrentSlide((prev) => (prev - 1 + sliderManhwas.length) % sliderManhwas.length)}
                         className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-all backdrop-blur-sm"
                         aria-label="Previous slide"
                     >
@@ -157,7 +161,7 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
                         </svg>
                     </button>
                     <button
-                        onClick={() => setCurrentSlide((prev) => (prev + 1) % recommendedManhwas.length)}
+                        onClick={() => setCurrentSlide((prev) => (prev + 1) % sliderManhwas.length)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-all backdrop-blur-sm"
                         aria-label="Next slide"
                     >
@@ -169,9 +173,9 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
             )}
 
             {/* Dots Navigation */}
-            {recommendedManhwas.length > 1 && (
+            {sliderManhwas.length > 1 && (
                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-                    {recommendedManhwas.map((_, index) => (
+                    {sliderManhwas.map((_, index) => (
                         <button
                             key={index}
                             onClick={() => setCurrentSlide(index)}
