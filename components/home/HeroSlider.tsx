@@ -34,7 +34,7 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
 
     if (sliderManhwas.length === 0) {
         return (
-            <div className="relative overflow-hidden bg-linear-to-br from-green-200 via-clay-100 to-black h-[500px] md:h-[600px] flex items-center justify-center">
+            <div className="relative overflow-hidden bg-neutral-900 border border-neutral-800 h-[500px] md:h-[600px] flex items-center justify-center">
                 <div className="text-white text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
                     <p className="text-lg">Memuat rekomendasi...</p>
@@ -44,7 +44,7 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
     }
 
     return (
-        <div className="relative overflow-hidden bg-linear-to-br from-green-200 via-clay-100 to-black">
+        <div className="relative overflow-hidden bg-neutral-900">
             {/* Slider Container */}
             <div className="relative h-[500px] md:h-[600px]">
                 {sliderManhwas.map((manhwa, index) => (
@@ -73,7 +73,7 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
                                         <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full">
                                             🔥 REKOMENDASI
                                         </span>
-                                        <span className="bg-yellow-500 text-gray-900 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                                        <span className="bg-yellow-500 text-neutral-900 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
                                             ★ {manhwa.rating}
                                         </span>
                                     </div>
@@ -88,7 +88,7 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
                                         {manhwa.genres.slice(0, 4).map((genre, i) => (
                                             <span
                                                 key={i}
-                                                className="bg-white/20 backdrop-blur-sm text-white text-sm px-3 py-1 rounded-full border border-white/30"
+                                                className="bg-white/10 backdrop-blur-sm text-gray-200 text-sm px-3 py-1 rounded-full border border-white/10"
                                             >
                                                 {genre}
                                             </span>
@@ -139,7 +139,7 @@ export default function HeroSlider({ manhwas }: HeroSliderProps) {
                                         </div>
 
                                         {/* Decorative elements */}
-                                        <div className="absolute -z-10 top-4 -right-4 w-full h-full bg-blue-600/20 rounded-2xl"></div>
+                                        <div className="absolute -z-10 top-4 -right-4 w-full h-full bg-blue-900/40 rounded-2xl"></div>
                                     </div>
                                 </div>
                             </div>

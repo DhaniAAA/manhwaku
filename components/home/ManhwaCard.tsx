@@ -34,10 +34,10 @@ export default function ManhwaCard({ manhwa, position }: ManhwaCardProps) {
         <Link
             href={`/detail/${manhwa.slug}`}
             onClick={handleClick}
-            className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
+            className="group relative bg-neutral-900 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
         >
             {/* Image Cover */}
-            <div className="aspect-3/4 overflow-hidden bg-gray-200 relative">
+            <div className="aspect-3/4 overflow-hidden bg-neutral-800 relative">
                 {/* Label Chapter Terbaru di Pojok Kiri Atas */}
                 {manhwa.latestChapters && manhwa.latestChapters.length > 0 && (
                     <div className="absolute top-2 left-2 z-10">
@@ -74,7 +74,7 @@ export default function ManhwaCard({ manhwa, position }: ManhwaCardProps) {
                 </div>
 
                 {/* Title */}
-                <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 mb-2 group-hover:text-blue-700 transition-colors">
+                <h3 className="font-bold text-white text-sm leading-snug line-clamp-2 mb-2 group-hover:text-blue-500 transition-colors">
                     {manhwa.title.replace(" Bahasa Indonesia", "")}
                 </h3>
 
@@ -87,8 +87,8 @@ export default function ManhwaCard({ manhwa, position }: ManhwaCardProps) {
                 )}
 
                 {/* Status Badge (Footer Card) */}
-                <div className="mt-auto pt-2 border-t border-gray-100 flex justify-between items-center">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${manhwa.status === "Ongoing" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                <div className="mt-auto pt-2 border-t border-neutral-800 flex justify-between items-center">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${manhwa.status === "Ongoing" ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
                         }`}>
                         {manhwa.status}
                     </span>

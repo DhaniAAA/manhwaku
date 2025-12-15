@@ -52,8 +52,8 @@ export default function Pagination({
     return (
         <div className="mt-8 md:mt-12 flex flex-col items-center gap-4 px-4 w-full">
             {/* Page Info */}
-            <p className="text-xs md:text-sm text-gray-500 text-center">
-                Menampilkan <span className="font-semibold text-gray-900">{startIndex + 1}-{Math.min(endIndex, totalItems)}</span> dari <span className="font-semibold text-gray-900">{totalItems}</span> manhwa
+            <p className="text-xs md:text-sm text-gray-400 text-center">
+                Menampilkan <span className="font-semibold text-white">{startIndex + 1}-{Math.min(endIndex, totalItems)}</span> dari <span className="font-semibold text-white">{totalItems}</span> manhwa
             </p>
 
             {/* --- TAMPILAN MOBILE (Layar Kecil) --- */}
@@ -61,7 +61,7 @@ export default function Pagination({
                 <button
                     onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
                     disabled={currentPage === 1}
-                    className="flex-1 px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-bold shadow-sm hover:bg-gray-50 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                    className="flex-1 px-4 py-3 rounded-xl bg-neutral-900 border border-neutral-800 text-gray-300 text-sm font-bold shadow-sm hover:bg-neutral-800 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                 >
                     ← Prev
                 </button>
@@ -69,7 +69,7 @@ export default function Pagination({
                 {/* Input Halaman Manual */}
                 <form
                     onSubmit={handleManualSubmit}
-                    className="flex items-center justify-center bg-gray-100 px-3 py-3 rounded-xl min-w-[100px]"
+                    className="flex items-center justify-center bg-neutral-800 px-3 py-3 rounded-xl min-w-[100px]"
                 >
                     <input
                         type="text"
@@ -77,17 +77,17 @@ export default function Pagination({
                         value={inputPage}
                         onChange={(e) => setInputPage(e.target.value)}
                         onBlur={handleManualSubmit}
-                        className="w-8 text-center bg-transparent font-bold text-gray-800 text-sm focus:outline-none p-0"
+                        className="w-8 text-center bg-transparent font-bold text-white text-sm focus:outline-none p-0"
                     />
-                    <span className="text-gray-500 text-sm font-medium whitespace-nowrap">
+                    <div className="text-gray-400 text-sm font-medium whitespace-nowrap">
                         / {totalPages}
-                    </span>
+                    </div>
                 </form>
 
                 <button
                     onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="flex-1 px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-bold shadow-sm hover:bg-gray-50 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                    className="flex-1 px-4 py-3 rounded-xl bg-neutral-900 border border-neutral-800 text-gray-300 text-sm font-bold shadow-sm hover:bg-neutral-800 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                 >
                     Next →
                 </button>
@@ -98,7 +98,7 @@ export default function Pagination({
                 <button
                     onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-600 font-medium hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                    className="px-4 py-2 rounded-lg bg-neutral-900 border border-neutral-800 text-gray-300 font-medium hover:bg-neutral-800 hover:text-blue-500 hover:border-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
                 >
                     ← Prev
                 </button>
@@ -116,8 +116,8 @@ export default function Pagination({
                                 <button
                                     onClick={() => handlePageChange(page)}
                                     className={`min-w-[40px] h-10 px-2 rounded-lg font-bold text-sm transition-all shadow-sm ${currentPage === page
-                                        ? "bg-blue-600 text-white shadow-blue-200 ring-2 ring-blue-600 ring-offset-1"
-                                        : "bg-white border border-gray-300 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+                                        ? "bg-blue-600 text-white shadow-blue-900/50 ring-2 ring-blue-600 ring-offset-1 ring-offset-neutral-900"
+                                        : "bg-neutral-900 border border-neutral-800 text-gray-300 hover:bg-neutral-800 hover:text-blue-500 hover:border-blue-900/50"
                                         }`}
                                 >
                                     {page}
@@ -129,7 +129,7 @@ export default function Pagination({
                 <button
                     onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-600 font-medium hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                    className="px-4 py-2 rounded-lg bg-neutral-900 border border-neutral-800 text-gray-300 font-medium hover:bg-neutral-800 hover:text-blue-500 hover:border-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
                 >
                     Next →
                 </button>

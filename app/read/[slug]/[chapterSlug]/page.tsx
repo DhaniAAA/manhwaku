@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ResponsiveAd } from "@/components/AdComponents";
+import { ResponsiveAd } from "@/components/Ads/AdComponents";
 
 // --- Interface Data ---
 interface ChapterItem {
@@ -114,7 +114,7 @@ export default function ReadPage() {
 
   if (error || !chapterData) {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white">
+      <div className="min-h-screen bg-neutral-900 flex flex-col items-center justify-center text-white">
         <h2 className="text-xl font-bold mb-2">Terjadi Kesalahan</h2>
         <p className="text-gray-400 mb-4">{error || "Chapter hilang."}</p>
         <button onClick={() => router.back()} className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">
@@ -125,9 +125,9 @@ export default function ReadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-200 font-sans">
+    <div className="min-h-screen bg-neutral-900 text-gray-200 font-sans">
       {/* HEADER/NAVBAR Sticky */}
-      <div className="sticky top-0 z-50 bg-gray-900/90 backdrop-blur-md border-b border-gray-800 shadow-lg transition-all duration-300">
+      <div className="sticky top-0 z-50 bg-neutral-900/90 backdrop-blur-md border-b border-neutral-800 shadow-lg transition-all duration-300">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Tombol Kembali ke Daftar Chapter */}
           <Link href={`/detail/${manhwaSlug}`} className="flex items-center text-sm font-medium hover:text-blue-400 transition">
@@ -142,7 +142,7 @@ export default function ReadPage() {
             {/* Tombol Prev */}
             <Link
               href={prevChapter ? `/read/${manhwaSlug}/${prevChapter.slug}` : "#"}
-              className={`px-3 py-1 rounded text-xs font-bold border ${prevChapter ? "border-gray-600 hover:bg-gray-800 text-white" : "border-gray-800 text-gray-600 cursor-not-allowed"}`}
+              className={`px-3 py-1 rounded text-xs font-bold border ${prevChapter ? "border-netural-600 hover:bg-neutral-800 text-white" : "border-neutral-800 text-gray-600 cursor-not-allowed"}`}
               aria-disabled={!prevChapter}
             >
               ← Prev
@@ -151,7 +151,7 @@ export default function ReadPage() {
             {/* Tombol Next */}
             <Link
               href={nextChapter ? `/read/${manhwaSlug}/${nextChapter.slug}` : "#"}
-              className={`px-3 py-1 rounded text-xs font-bold border ${nextChapter ? "bg-blue-600 border-blue-600 text-white hover:bg-blue-700" : "border-gray-800 text-gray-600 cursor-not-allowed"}`}
+              className={`px-3 py-1 rounded text-xs font-bold border ${nextChapter ? "bg-blue-600 border-blue-600 text-white hover:bg-blue-700" : "border-neutral-800 text-gray-600 cursor-not-allowed"}`}
               aria-disabled={!nextChapter}
             >
               Next →
@@ -164,7 +164,7 @@ export default function ReadPage() {
 
       {/* Ad Iklan Di bawah Prev dan Next */}
       <div className="max-w-3xl mx-auto mt-4 mb-2">
-        <ResponsiveAd className="bg-gray-800 rounded-lg" />
+        <ResponsiveAd className="bg-neutral-800 rounded-lg" />
       </div>
 
       {/* AREA BACA (GAMBAR) */}
@@ -189,13 +189,13 @@ export default function ReadPage() {
       </main>
 
       {/* FOOTER NAVIGASI */}
-      <div className="max-w-3xl mx-auto p-8 bg-gray-900 text-center space-y-6 border-t border-gray-800 mt-4">
+      <div className="max-w-3xl mx-auto p-8 bg-neutral-900 text-center space-y-6 border-t border-neutral-800 mt-4">
         <p className="text-gray-400 text-sm">Kamu baru saja selesai membaca:</p>
         <h2 className="text-xl font-bold text-white">{chapterData.title}</h2>
 
         <div className="flex justify-center gap-4 mt-4">
           {prevChapter && (
-            <Link href={`/read/${manhwaSlug}/${prevChapter.slug}`} className="px-6 py-3 rounded-full border border-gray-600 hover:bg-gray-800 transition font-semibold">
+            <Link href={`/read/${manhwaSlug}/${prevChapter.slug}`} className="px-6 py-3 rounded-full border border-neutral-600 hover:bg-neutral-800 transition font-semibold">
               ← {prevChapter.title}
             </Link>
           )}
@@ -205,7 +205,7 @@ export default function ReadPage() {
               {nextChapter.title} →
             </Link>
           ) : (
-            <div className="px-6 py-3 rounded-full bg-gray-800 text-gray-500 cursor-not-allowed">Sudah Chapter Terakhir</div>
+            <div className="px-6 py-3 rounded-full bg-neutral-800 text-gray-500 cursor-not-allowed">Sudah Chapter Terakhir</div>
           )}
         </div>
       </div>

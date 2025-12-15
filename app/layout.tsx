@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import SnowEffect from "@/components/ui/SnowEffect";
 // import { FloatingAd } from "@/components/AdComponents";
 
 
@@ -123,6 +124,9 @@ export default function RootLayout({
             style={{ display: 'none', visibility: 'hidden' }}
           />
         </noscript>
+
+        {/* Efek Salju */}
+        <SnowEffect />
 
         {children}
       </body>
