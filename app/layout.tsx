@@ -106,12 +106,12 @@ export default function RootLayout({
         </Script>
 
         {/* Adsterra Ad Script */}
-        <Script
+        {/* <Script
           id="adsterra-social-bar"
           type="text/javascript"
           src="https://pl28143032.effectivegatecpm.com/65/67/9c/65679c1ac45211d8dfb1ac2bf487ebbe.js"
           strategy="afterInteractive"
-        />
+        /> */}
 
         {/* <FloatingAd /> */}
 
