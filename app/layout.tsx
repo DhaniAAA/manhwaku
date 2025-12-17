@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "ManhwaKu - Baca Manhwa Online Gratis Terlengkap",
+    default: "ManhwaKu - Baca Manhwa Subtile Indonesia Online Gratis Terlengkap",
     template: "%s | ManhwaKu",
   },
   description: "Baca manhwa online gratis terlengkap dengan update chapter terbaru setiap hari. Koleksi manhwa action, romance, fantasy, dan genre lainnya.",
@@ -51,12 +51,12 @@ export const metadata: Metadata = {
     type: "website",
     locale: "id_ID",
     url: "/",
-    title: "ManhwaKu - Baca Manhwa Online Gratis Terlengkap",
+    title: "ManhwaKu - Baca Manhwa Subtile Indonesia Online Gratis Terlengkap",
     description: "Baca manhwa online gratis terlengkap dengan update chapter terbaru setiap hari.",
     siteName: "ManhwaKu",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "ManhwaKu - Baca Manhwa Online",
@@ -65,9 +65,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ManhwaKu - Baca Manhwa Online Gratis Terlengkap",
+    title: "ManhwaKu - Baca Manhwa Subtile Indonesia Online Gratis Terlengkap",
     description: "Baca manhwa online gratis terlengkap dengan update chapter terbaru setiap hari.",
-    images: ["/og-image.jpg"],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
