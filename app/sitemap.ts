@@ -63,12 +63,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                 const data = await chaptersRes.json()
                 const chapters: ChapterItem[] = data.chapters || data || []
 
-                return chapters.slice(0, 20).map((chapter) => ({
-                    url: `${baseUrl}/read/${manhwa.slug}/${chapter.slug}`,
-                    lastModified: chapter.waktu_rilis ? new Date(chapter.waktu_rilis) : new Date(),
-                    changeFrequency: 'monthly' as const,
-                    priority: 0.5,
-                }))
+                return chapters.slice(0, 20).map((chapter) => {
+                    // Safe date parsing
+                    let lastModified = new Date()
+                    if (chapter.waktu_rilis) {
+                        const parsedDate = new Date(chapter.waktu_rilis)
+                        if (!isNaN(parsedDate.getTime())) {
+                            lastModified = parsedDate
+                        }
+                    }
+
+                    return {
+                        url: `${baseUrl}/read/${manhwa.slug}/${chapter.slug}`,
+                        lastModified,
+                        changeFrequency: 'monthly' as const,
+                        priority: 0.5,
+                    }
+                })
             } catch {
                 return []
             }
