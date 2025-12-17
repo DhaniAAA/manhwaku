@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const chapterMatch = currentChapter.title.match(/(?:chapter|ch\.?)\s*(\d+(?:\.\d+)?)/i);
   const chapterNum = chapterMatch ? chapterMatch[1] : currentChapter.title;
 
-  const title = `${meta.title} Chapter ${chapterNum} Sub Indo - Baca Online`;
+  const title = `${meta.title} Chapter ${chapterNum} Sub Indo - Baca Gratis Online`;
   const description = `Baca ${meta.title} Chapter ${chapterNum} Bahasa Indonesia secara gratis di ManhwaKu. ${meta.synopsis?.slice(0, 100) || `Komik ${meta.type || "Manhwa"} ${meta.genres?.join(", ") || ""}`}`;
 
   return {
@@ -101,8 +101,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       `${meta.title} bahasa indonesia`,
       ...(meta.genres || []),
       "manhwa",
-      "komik",
+      "baca manhwa",
+      "manhwa online",
+      "manhwa gratis",
+      "manhwa indonesia",
+      "komik korea",
       "webtoon",
+      "manhwa terbaru",
+      "baca komik online",
+      "komikcast",
+      "komiku",
+      "komikindo",
+      "komikid",
+      "manhwaindo",
+      "kiryuu",
+      "shinigami",
     ],
     openGraph: {
       title,

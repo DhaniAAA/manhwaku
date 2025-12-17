@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const title = `Baca ${meta.title} Bahasa Indonesia`;
+  const title = `Baca ${meta.title} Bahasa Indonesia - Gratis & Lengkap`;
   const description = meta.synopsis
     ? `${meta.synopsis.slice(0, 155)}...`
     : `Baca komik ${meta.title} Bahasa Indonesia secara gratis di ManhwaKu. Genre: ${meta.genres?.join(", ") || "Manhwa"}. Status: ${meta.status}.`;
@@ -102,8 +102,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       `${meta.title} sub indo`,
       ...(meta.genres || []),
       "manhwa",
-      "komik",
+      "baca manhwa",
+      "manhwa online",
+      "manhwa gratis",
+      "manhwa indonesia",
+      "komik korea",
       "webtoon",
+      "manhwa terbaru",
+      "baca komik online",
+      "komikcast",
+      "komiku",
+      "komikindo",
+      "komikid",
+      "manhwaindo",
+      "kiryuu",
+      "shinigami",
     ],
     openGraph: {
       title,
