@@ -1,5 +1,15 @@
 import { MetadataRoute } from 'next'
 
+interface ChapterItem {
+    slug: string;
+    waktu_rilis?: string;
+}
+
+interface ManhwaData {
+    slug: string;
+    chapters?: ChapterItem[];
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
@@ -34,16 +44,40 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Fetch dynamic manhwa pages
     try {
         const res = await fetch(`${baseUrl}/api/all_manhwa`)
-        const manhwas = await res.json()
+        const manhwas: ManhwaData[] = await res.json()
 
-        const manhwaPages: MetadataRoute.Sitemap = manhwas.map((manhwa: any) => ({
+        // Detail pages for each manhwa
+        const manhwaPages: MetadataRoute.Sitemap = manhwas.map((manhwa) => ({
             url: `${baseUrl}/detail/${manhwa.slug}`,
             lastModified: new Date(),
             changeFrequency: 'weekly' as const,
             priority: 0.7,
         }))
 
-        return [...staticPages, ...manhwaPages]
+        // Chapter pages - fetch chapters for each manhwa
+        const chapterPagesPromises = manhwas.slice(0, 50).map(async (manhwa) => {
+            try {
+                const chaptersRes = await fetch(`${baseUrl}/api/manhwa/${manhwa.slug}?type=chapters`)
+                if (!chaptersRes.ok) return []
+
+                const data = await chaptersRes.json()
+                const chapters: ChapterItem[] = data.chapters || data || []
+
+                return chapters.slice(0, 20).map((chapter) => ({
+                    url: `${baseUrl}/read/${manhwa.slug}/${chapter.slug}`,
+                    lastModified: chapter.waktu_rilis ? new Date(chapter.waktu_rilis) : new Date(),
+                    changeFrequency: 'monthly' as const,
+                    priority: 0.5,
+                }))
+            } catch {
+                return []
+            }
+        })
+
+        const chapterPagesArrays = await Promise.all(chapterPagesPromises)
+        const chapterPages = chapterPagesArrays.flat()
+
+        return [...staticPages, ...manhwaPages, ...chapterPages]
     } catch (error) {
         console.error('Error generating sitemap:', error)
         return staticPages
