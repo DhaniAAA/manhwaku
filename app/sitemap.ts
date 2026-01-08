@@ -64,7 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                 const data = await chaptersRes.json()
                 const chapters: ChapterItem[] = data.chapters || data || []
 
-                return chapters.slice(0, 50).map((chapter) => {
+                return chapters.slice(0, 1).map((chapter) => {
                     // Safe date parsing
                     let lastModified = new Date()
                     if (chapter.waktu_rilis) {

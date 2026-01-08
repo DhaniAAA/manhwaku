@@ -22,19 +22,31 @@ export default function Home() {
         item.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Sort berdasarkan waktu rilis chapter terbaru
+    // Helper function: Cari waktu rilis terbaru dari semua chapter dalam latestChapters
+    const getLatestTimestamp = (chapters: typeof manhwas[0]["latestChapters"]): number => {
+        if (!chapters || chapters.length === 0) return 0;
+
+        let maxTimestamp = 0;
+        for (const chapter of chapters) {
+            if (chapter.waktu_rilis) {
+                const timestamp = new Date(chapter.waktu_rilis).getTime();
+                if (!isNaN(timestamp) && timestamp > maxTimestamp) {
+                    maxTimestamp = timestamp;
+                }
+            }
+        }
+        return maxTimestamp;
+    };
+
+    // Sort berdasarkan waktu rilis chapter terbaru (mencari timestamp terbaru dari semua chapter)
     const sortedManhwas = [...filteredManhwas].sort((a, b) => {
-        const aLatestTime = a.latestChapters && a.latestChapters.length > 0 ? a.latestChapters[0].waktu_rilis : "";
-        const bLatestTime = b.latestChapters && b.latestChapters.length > 0 ? b.latestChapters[0].waktu_rilis : "";
+        const aTimestamp = getLatestTimestamp(a.latestChapters);
+        const bTimestamp = getLatestTimestamp(b.latestChapters);
 
-        if (!aLatestTime) return 1;
-        if (!bLatestTime) return -1;
-
-        const aTimestamp = new Date(aLatestTime).getTime();
-        const bTimestamp = new Date(bLatestTime).getTime();
-
-        if (isNaN(aTimestamp)) return 1;
-        if (isNaN(bTimestamp)) return -1;
+        // Manhwa tanpa chapter valid ditaruh di akhir
+        if (aTimestamp === 0 && bTimestamp === 0) return 0;
+        if (aTimestamp === 0) return 1;
+        if (bTimestamp === 0) return -1;
 
         return sortOrder === "newest" ? bTimestamp - aTimestamp : aTimestamp - bTimestamp;
     });
@@ -73,9 +85,9 @@ export default function Home() {
             <HeroSlider manhwas={manhwas} />
 
             {/* Banner Ad - After Hero */}
-            <div className="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1">
+            {/* <div className="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1">
                 <ResponsiveAd />
-            </div>
+            </div> */}
 
             {/* Banner Ad - Iklan Sponsor */}
             <div className="max-w-7xl mx-auto px-4 mt-6">

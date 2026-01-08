@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import SnowEffect from "@/components/ui/SnowEffect";
+import { WebsiteJsonLd, OrganizationJsonLd } from "@/components/seo/JsonLd";
 // import { FloatingAd } from "@/components/AdComponents";
 
 
@@ -92,6 +93,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
+      <head>
+        {/* Structured Data untuk SEO - Website Schema */}
+        <WebsiteJsonLd
+          name="ManhwaKu"
+          url="https://www.manhwaku.biz.id"
+          searchUrl="https://www.manhwaku.biz.id/?search={search_term_string}"
+        />
+        {/* Structured Data untuk SEO - Organization Schema */}
+        <OrganizationJsonLd
+          name="ManhwaKu"
+          url="https://www.manhwaku.biz.id"
+          logo="https://www.manhwaku.biz.id/icon.png"
+          description="Baca manhwa online gratis terlengkap dengan update chapter terbaru setiap hari. Koleksi manhwa action, romance, fantasy, dan genre lainnya."
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
 
         {/* Google Tag Manager (Script) */}

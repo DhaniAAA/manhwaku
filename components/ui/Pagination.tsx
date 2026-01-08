@@ -115,7 +115,7 @@ export default function Pagination({
                                 )}
                                 <button
                                     onClick={() => handlePageChange(page)}
-                                    className={`min-w-[40px] h-10 px-2 rounded-lg font-bold text-sm transition-all shadow-sm ${currentPage === page
+                                    className={`min-w-10 h-10 px-2 rounded-lg font-bold text-sm transition-all shadow-sm ${currentPage === page
                                         ? "bg-blue-600 text-white shadow-blue-900/50 ring-2 ring-blue-600 ring-offset-1 ring-offset-neutral-900"
                                         : "bg-neutral-900 border border-neutral-800 text-gray-300 hover:bg-neutral-800 hover:text-blue-500 hover:border-blue-900/50"
                                         }`}
