@@ -85,9 +85,9 @@ export default function Home() {
             <HeroSlider manhwas={manhwas} />
 
             {/* Banner Ad - After Hero */}
-            {/* <div className="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1">
+            <div className="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1">
                 <ResponsiveAd />
-            </div> */}
+            </div>
 
             {/* Banner Ad - Iklan Sponsor */}
             <div className="max-w-7xl mx-auto px-4 mt-6">
@@ -151,9 +151,9 @@ export default function Home() {
             </div>
 
             {/* Banner Ad - Before Footer */}
-            {/* <div className="max-w-7xl mx-auto px-4 mb-8">
+            <div className="max-w-7xl mx-auto px-4 mb-8">
                 <ResponsiveAd />
-            </div> */}
+            </div>
 
             {/* Footer */}
             <footer className="bg-neutral-900 border-t border-neutral-800 py-8 text-center text-gray-400 text-sm mt-auto">
