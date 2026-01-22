@@ -142,7 +142,7 @@ export default function RootLayout({
         </noscript>
 
         {/* Efek Salju */}
-        <SnowEffect />
+        {/* <SnowEffect /> */}
 
         {children}
       </body>
