@@ -4,8 +4,6 @@ import Script from "next/script";
 import "./globals.css";
 import SnowEffect from "@/components/ui/SnowEffect";
 import { WebsiteJsonLd, OrganizationJsonLd } from "@/components/seo/JsonLd";
-// import { FloatingAd } from "@/components/AdComponents";
-
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -94,6 +92,9 @@ export default function RootLayout({
   return (
     <html lang="id">
       <head>
+        {/* Monetag Verification Meta Tag */}
+        <meta name="monetag" content="92d3f15e8778cc11dee26360b46235c1" />
+
         {/* Structured Data untuk SEO - Website Schema */}
         <WebsiteJsonLd
           name="ManhwaKu"
@@ -121,15 +122,20 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* Adsterra Ad Script */}
-        {/* <Script
-          id="adsterra-social-bar"
-          type="text/javascript"
-          src="https://pl28143032.effectivegatecpm.com/65/67/9c/65679c1ac45211d8dfb1ac2bf487ebbe.js"
-          strategy="afterInteractive"
-        /> */}
-
-        {/* <FloatingAd /> */}
+        {/* Monetag Service Worker Registration (untuk Social Bar / Smart Link) */}
+        <Script id="monetag-sw-register" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.register('/sw.js')
+                .then(function(reg) {
+                  console.log('Monetag SW registered');
+                })
+                .catch(function(err) {
+                  console.log('Monetag SW registration failed:', err);
+                });
+            }
+          `}
+        </Script>
 
         {/* Google Tag Manager (NoScript) - Wajib di Body */}
         <noscript>
