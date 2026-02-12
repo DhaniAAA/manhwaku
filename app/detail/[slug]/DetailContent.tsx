@@ -3,30 +3,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ResponsiveAd } from "@/components/Ads/AdComponents";
+import { ManhwaDetail, ChapterDetail } from "@/types/manhwa";
 
-// --- Interfaces ---
-interface Metadata {
-    title: string;
-    cover_url: string;
-    author?: string;
-    status: string;
-    rating: string;
-    genres: string[];
-    synopsis?: string;
-    type?: string;
-}
-
-interface ChapterItem {
-    slug: string;
-    title: string;
-    waktu_rilis: string;
-    url: string;
-    images: string[];
-}
-
+// --- Props Interface ---
 interface DetailContentProps {
-    meta: Metadata;
-    chapters: ChapterItem[];
+    meta: ManhwaDetail;
+    chapters: ChapterDetail[];
     slug: string;
 }
 
@@ -36,6 +18,12 @@ export default function DetailContent({ meta, chapters, slug }: DetailContentPro
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(21);
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Get metadata info
+    const status = meta.metadata?.Status || "Berjalan";
+    const author = meta.metadata?.Author || "";
+    const ilustrator = meta.metadata?.Ilustrator || "";
+    const type = meta.metadata?.Type || "Manhwa";
 
     // Helper function to extract chapter number from title
     const extractChapterNumber = (title: string): number => {
@@ -100,7 +88,7 @@ export default function DetailContent({ meta, chapters, slug }: DetailContentPro
                                 />
                                 {/* Status */}
                                 <div className="absolute top-2 right-2">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${meta.status === "Ongoing" ? "bg-green-500" : "bg-red-500"}`}>{meta.status}</span>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${status === "Berjalan" ? "bg-green-500" : "bg-red-500"}`}>{status}</span>
                                 </div>
                             </div>
                         </div>
@@ -110,9 +98,31 @@ export default function DetailContent({ meta, chapters, slug }: DetailContentPro
                             <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-3">{meta.title}</h1>
 
                             <div className="flex items-center gap-4 mb-4 text-sm">
-                                <div className="flex items-center text-yellow-500 font-bold text-lg">★ {meta.rating}</div>
-                                <span className="bg-blue-900/30 text-blue-400 px-3 py-1 rounded font-medium text-xs">{meta.type || "Manhwa"}</span>
+                                <span className="bg-blue-900/30 text-blue-400 px-3 py-1 rounded font-medium text-xs">{type}</span>
+                                {meta.total_chapters > 0 && (
+                                    <span className="bg-purple-900/30 text-purple-400 px-3 py-1 rounded font-medium text-xs">
+                                        {meta.total_chapters} Chapter
+                                    </span>
+                                )}
                             </div>
+
+                            {/* Author & Ilustrator Info */}
+                            {(author || ilustrator) && (
+                                <div className="flex flex-wrap gap-x-6 gap-y-1 mb-4 text-sm text-gray-400">
+                                    {author && (
+                                        <div>
+                                            <span className="text-gray-500">Author:</span>{" "}
+                                            <span className="text-gray-300 font-medium">{author}</span>
+                                        </div>
+                                    )}
+                                    {ilustrator && (
+                                        <div>
+                                            <span className="text-gray-500">Ilustrator:</span>{" "}
+                                            <span className="text-gray-300 font-medium">{ilustrator}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="flex flex-wrap gap-2 mb-6">
                                 {meta.genres &&

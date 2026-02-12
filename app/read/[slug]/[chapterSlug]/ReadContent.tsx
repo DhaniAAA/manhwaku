@@ -3,21 +3,15 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { ResponsiveAd } from "@/components/Ads/AdComponents";
+import { ChapterDetail } from "@/types/manhwa";
 
-// --- Interface Data ---
-interface ChapterItem {
-    slug: string;
-    title: string;
-    url: string;
-    images: string[];
-}
-
+// --- Props Interface ---
 interface ReadContentProps {
     manhwaSlug: string;
     chapterSlug: string;
     manhwaTitle: string;
-    chapterData: ChapterItem;
-    allChapters: ChapterItem[];
+    chapterData: ChapterDetail;
+    allChapters: ChapterDetail[];
 }
 
 export default function ReadContent({
@@ -105,6 +99,7 @@ export default function ReadContent({
                             src={imgUrl}
                             alt={`${manhwaTitle} ${chapterData.title} - Page ${idx + 1}`}
                             loading="lazy"
+                            referrerPolicy="no-referrer"
                             className="w-full h-auto block"
                             onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = "none";

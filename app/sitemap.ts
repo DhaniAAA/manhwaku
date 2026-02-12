@@ -7,7 +7,8 @@ interface ChapterItem {
 
 interface ManhwaData {
     slug: string;
-    chapters?: ChapterItem[];
+    total_chapters?: number;
+    latestChapters?: { slug: string; waktu_rilis?: string }[];
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

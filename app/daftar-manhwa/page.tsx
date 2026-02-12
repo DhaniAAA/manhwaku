@@ -270,7 +270,7 @@ export default function DaftarManhwaPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 hidden sm:table-cell">
-                                                    <span className={`text-xs font-medium px-2 py-1 rounded ${manhwa.status === "Ongoing"
+                                                    <span className={`text-xs font-medium px-2 py-1 rounded ${manhwa.status === "Berjalan"
                                                         ? "bg-green-900/30 text-green-400"
                                                         : "bg-red-900/30 text-red-400"
                                                         }`}>
@@ -322,13 +322,13 @@ export default function DaftarManhwaPage() {
                             </div>
                             <div className="text-center p-4 bg-green-900/20 rounded-lg">
                                 <p className="text-2xl font-bold text-green-400">
-                                    {manhwas.filter(m => m.status === "Ongoing").length}
+                                    {manhwas.filter(m => m.status === "Berjalan").length}
                                 </p>
                                 <p className="text-xs text-gray-400 mt-1">Ongoing</p>
                             </div>
                             <div className="text-center p-4 bg-red-900/20 rounded-lg">
                                 <p className="text-2xl font-bold text-red-400">
-                                    {manhwas.filter(m => m.status === "Completed").length}
+                                    {manhwas.filter(m => m.status === "Tamat").length}
                                 </p>
                                 <p className="text-xs text-gray-400 mt-1">Completed</p>
                             </div>

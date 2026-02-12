@@ -2,31 +2,12 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ReadContent from "./ReadContent";
 import { ChapterJsonLd, BreadcrumbJsonLd } from "@/components/seo/JsonLd";
-
-// --- Interfaces ---
-interface ManhwaMetadata {
-  title: string;
-  cover_url: string;
-  author?: string;
-  status: string;
-  rating: string;
-  genres: string[];
-  synopsis?: string;
-  type?: string;
-}
-
-interface ChapterItem {
-  slug: string;
-  title: string;
-  waktu_rilis?: string;
-  url: string;
-  images: string[];
-}
+import { ManhwaDetail, ChapterDetail } from "@/types/manhwa";
 
 // --- Data Fetching Functions (Server-side) ---
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.manhwaku.biz.id";
 
-async function getManhwaMetadata(slug: string): Promise<ManhwaMetadata | null> {
+async function getManhwaMetadata(slug: string): Promise<ManhwaDetail | null> {
   try {
     const res = await fetch(`${SITE_URL}/api/manhwa/${slug}?type=metadata`, {
       next: { revalidate: 3600 },
@@ -39,7 +20,7 @@ async function getManhwaMetadata(slug: string): Promise<ManhwaMetadata | null> {
   }
 }
 
-async function getManhwaChapters(slug: string): Promise<ChapterItem[]> {
+async function getManhwaChapters(slug: string): Promise<ChapterDetail[]> {
   try {
     const res = await fetch(`${SITE_URL}/api/manhwa/${slug}?type=chapters`, {
       next: { revalidate: 3600 },
@@ -48,6 +29,7 @@ async function getManhwaChapters(slug: string): Promise<ChapterItem[]> {
 
     const rawData = await res.json();
 
+    // Handle format response: { slug, title, total_chapters, chapters: [...] }
     if (rawData.chapters && Array.isArray(rawData.chapters)) {
       return rawData.chapters;
     } else if (Array.isArray(rawData)) {
@@ -59,6 +41,30 @@ async function getManhwaChapters(slug: string): Promise<ChapterItem[]> {
     console.error("Error fetching chapters:", error);
     return [];
   }
+}
+
+// --- Helper: Smart Chapter Matching ---
+// Mencocokkan chapter berdasarkan slug, dengan fallback ke nomor chapter
+// Contoh: URL slug "chapter-242-end" bisa cocok dengan chapters.json slug "chapter242"
+function findChapterBySlug(chapters: ChapterDetail[], chapterSlug: string): ChapterDetail | undefined {
+  // 1. Exact match
+  const exact = chapters.find((ch) => ch.slug === chapterSlug);
+  if (exact) return exact;
+
+  // 2. Extract chapter number from URL slug dan cocokkan
+  const urlNumMatch = chapterSlug.match(/(\d+(?:\.\d+)?)/);
+  if (urlNumMatch) {
+    const urlNum = urlNumMatch[1];
+    // Cari chapter yang mengandung nomor yang sama
+    const byNumber = chapters.find((ch) => {
+      const chNumMatch = ch.slug.match(/(\d+(?:\.\d+)?)/);
+      return chNumMatch && chNumMatch[1] === urlNum;
+    });
+    if (byNumber) return byNumber;
+  }
+
+  // 3. Tidak ditemukan
+  return undefined;
 }
 
 // --- Dynamic Metadata untuk SEO ---
@@ -74,7 +80,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     getManhwaChapters(slug),
   ]);
 
-  const currentChapter = chapters.find((ch) => ch.slug === chapterSlug);
+  const currentChapter = findChapterBySlug(chapters, chapterSlug);
 
   if (!meta || !currentChapter) {
     return {
@@ -83,12 +89,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  const type = meta.metadata?.Type || "Manhwa";
+
   // Extract chapter number for better title
   const chapterMatch = currentChapter.title.match(/(?:chapter|ch\.?)\s*(\d+(?:\.\d+)?)/i);
   const chapterNum = chapterMatch ? chapterMatch[1] : currentChapter.title;
 
   const title = `${meta.title} Chapter ${chapterNum} Sub Indo - Baca Gratis Online`;
-  const description = `Baca ${meta.title} Chapter ${chapterNum} Bahasa Indonesia secara gratis di ManhwaKu. ${meta.synopsis?.slice(0, 100) || `Komik ${meta.type || "Manhwa"} ${meta.genres?.join(", ") || ""}`}`;
+  const description = `Baca ${meta.title} Chapter ${chapterNum} Bahasa Indonesia secara gratis di ManhwaKu. ${meta.synopsis?.slice(0, 100) || `Komik ${type} ${meta.genres?.join(", ") || ""}`}`;
 
   return {
     title,
@@ -165,7 +173,7 @@ export default async function ReadPage({ params }: Props) {
   }
 
   // Cari chapter yang sesuai
-  const currentChapter = chapters.find((ch) => ch.slug === chapterSlug);
+  const currentChapter = findChapterBySlug(chapters, chapterSlug);
 
   if (!currentChapter) {
     notFound();

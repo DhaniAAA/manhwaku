@@ -22,28 +22,30 @@ export default function Home() {
         item.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Helper function: Cari waktu rilis terbaru dari semua chapter dalam latestChapters
-    const getLatestTimestamp = (chapters: typeof manhwas[0]["latestChapters"]): number => {
-        if (!chapters || chapters.length === 0) return 0;
-
-        let maxTimestamp = 0;
-        for (const chapter of chapters) {
-            if (chapter.waktu_rilis) {
-                const timestamp = new Date(chapter.waktu_rilis).getTime();
-                if (!isNaN(timestamp) && timestamp > maxTimestamp) {
-                    maxTimestamp = timestamp;
-                }
-            }
+    // Helper function: Ambil timestamp dari waktu rilis chapter terbaru
+    // Prioritas: latestChapters[0].waktu_rilis → lastUpdateTime (Supabase)
+    const getUpdateTimestamp = (manhwa: typeof manhwas[0]): number => {
+        // Prioritas 1: waktu rilis chapter terbaru
+        if (manhwa.latestChapters && manhwa.latestChapters.length > 0) {
+            const timestamp = new Date(manhwa.latestChapters[0].waktu_rilis).getTime();
+            if (!isNaN(timestamp)) return timestamp;
         }
-        return maxTimestamp;
+
+        // Fallback: lastUpdateTime dari Supabase
+        if (manhwa.lastUpdateTime) {
+            const timestamp = new Date(manhwa.lastUpdateTime).getTime();
+            if (!isNaN(timestamp)) return timestamp;
+        }
+
+        return 0;
     };
 
-    // Sort berdasarkan waktu rilis chapter terbaru (mencari timestamp terbaru dari semua chapter)
+    // Sort berdasarkan waktu rilis chapter terbaru (Update Terbaru)
     const sortedManhwas = [...filteredManhwas].sort((a, b) => {
-        const aTimestamp = getLatestTimestamp(a.latestChapters);
-        const bTimestamp = getLatestTimestamp(b.latestChapters);
+        const aTimestamp = getUpdateTimestamp(a);
+        const bTimestamp = getUpdateTimestamp(b);
 
-        // Manhwa tanpa chapter valid ditaruh di akhir
+        // Manhwa tanpa timestamp valid ditaruh di akhir
         if (aTimestamp === 0 && bTimestamp === 0) return 0;
         if (aTimestamp === 0) return 1;
         if (bTimestamp === 0) return -1;

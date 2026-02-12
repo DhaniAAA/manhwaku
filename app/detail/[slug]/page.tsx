@@ -2,38 +2,12 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import DetailContent from "./DetailContent";
 import { ManhwaJsonLd, BreadcrumbJsonLd } from "@/components/seo/JsonLd";
-
-// --- Interfaces ---
-interface ManhwaMetadata {
-  title: string;
-  cover_url: string;
-  author?: string;
-  status: string;
-  rating: string;
-  genres: string[];
-  synopsis?: string;
-  type?: string;
-}
-
-interface ChapterItem {
-  slug: string;
-  title: string;
-  waktu_rilis: string;
-  url: string;
-  images: string[];
-}
-
-interface ChapterResponse {
-  slug: string;
-  title: string;
-  total_chapters: number;
-  chapters: ChapterItem[];
-}
+import { ManhwaDetail, ChapterDetail, ChaptersResponse } from "@/types/manhwa";
 
 // --- Data Fetching Functions (Server-side) ---
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.manhwaku.biz.id";
 
-async function getManhwaMetadata(slug: string): Promise<ManhwaMetadata | null> {
+async function getManhwaMetadata(slug: string): Promise<ManhwaDetail | null> {
   try {
     const res = await fetch(`${SITE_URL}/api/manhwa/${slug}?type=metadata`, {
       next: { revalidate: 3600 }, // Cache selama 1 jam
@@ -47,7 +21,7 @@ async function getManhwaMetadata(slug: string): Promise<ManhwaMetadata | null> {
   }
 }
 
-async function getManhwaChapters(slug: string): Promise<ChapterItem[]> {
+async function getManhwaChapters(slug: string): Promise<ChapterDetail[]> {
   try {
     const res = await fetch(`${SITE_URL}/api/manhwa/${slug}?type=chapters`, {
       next: { revalidate: 3600 }, // Cache selama 1 jam
@@ -57,7 +31,7 @@ async function getManhwaChapters(slug: string): Promise<ChapterItem[]> {
 
     const rawData = await res.json();
 
-    // Handle berbagai format response
+    // Handle format response: { slug, title, total_chapters, chapters: [...] }
     if (rawData.chapters && Array.isArray(rawData.chapters)) {
       return rawData.chapters;
     } else if (Array.isArray(rawData)) {
@@ -87,10 +61,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  const status = meta.metadata?.Status || "Berjalan";
+  const type = meta.metadata?.Type || "Manhwa";
+  const author = meta.metadata?.Author || "";
+
   const title = `Baca ${meta.title} Bahasa Indonesia - Gratis & Lengkap`;
   const description = meta.synopsis
     ? `${meta.synopsis.slice(0, 155)}...`
-    : `Baca komik ${meta.title} Bahasa Indonesia secara gratis di ManhwaKu. Genre: ${meta.genres?.join(", ") || "Manhwa"}. Status: ${meta.status}.`;
+    : `Baca komik ${meta.title} Bahasa Indonesia secara gratis di ManhwaKu. Genre: ${meta.genres?.join(", ") || "Manhwa"}. Status: ${status}.`;
 
   return {
     title,
@@ -165,6 +143,9 @@ export default async function ManhwaDetailPage({ params }: Props) {
     notFound();
   }
 
+  const status = meta.metadata?.Status || "Berjalan";
+  const author = meta.metadata?.Author || "";
+
   // Render client component dengan data dari server
   return (
     <>
@@ -173,10 +154,10 @@ export default async function ManhwaDetailPage({ params }: Props) {
         title={meta.title}
         description={meta.synopsis || `Baca ${meta.title} Bahasa Indonesia di ManhwaKu`}
         coverUrl={meta.cover_url}
-        author={meta.author}
+        author={author}
         genres={meta.genres}
-        status={meta.status}
-        rating={meta.rating}
+        status={status}
+        rating={""}
         url={`${SITE_URL}/detail/${slug}`}
       />
       <BreadcrumbJsonLd

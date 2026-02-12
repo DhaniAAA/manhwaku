@@ -17,7 +17,23 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'komikindo.ch',
+      },
+      {
+        protocol: 'https',
         hostname: '**.komikindo.ch',
+      },
+      {
+        protocol: 'https',
+        hostname: 'imageainewgeneration.lol',
+      },
+      {
+        protocol: 'https',
+        hostname: 'himmga.lat',
+      },
+      {
+        protocol: 'https',
+        hostname: 'gaimgame.pics',
       },
       {
         protocol: 'https',

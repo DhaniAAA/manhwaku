@@ -28,7 +28,7 @@ export default function JelajahiPage() {
 
     // Get unique types from data
     const types = ["all", ...new Set(manhwas.map(m => m.type).filter(Boolean))];
-    const statuses = ["all", "Ongoing", "Completed"];
+    const statuses = ["all", "Berjalan", "Tamat"];
 
     // Toggle genre selection
     const toggleGenre = (genre: string) => {
@@ -76,12 +76,12 @@ export default function JelajahiPage() {
     const sortedManhwas = [...filteredManhwas].sort((a, b) => {
         switch (sortBy) {
             case "newest":
-                const aTime = a.latestChapters?.[0]?.waktu_rilis || "";
-                const bTime = b.latestChapters?.[0]?.waktu_rilis || "";
+                const aTime = a.lastUpdateTime || a.latestChapters?.[0]?.waktu_rilis || "";
+                const bTime = b.lastUpdateTime || b.latestChapters?.[0]?.waktu_rilis || "";
                 return new Date(bTime).getTime() - new Date(aTime).getTime();
             case "oldest":
-                const aTimeOld = a.latestChapters?.[0]?.waktu_rilis || "";
-                const bTimeOld = b.latestChapters?.[0]?.waktu_rilis || "";
+                const aTimeOld = a.lastUpdateTime || a.latestChapters?.[0]?.waktu_rilis || "";
+                const bTimeOld = b.lastUpdateTime || b.latestChapters?.[0]?.waktu_rilis || "";
                 return new Date(aTimeOld).getTime() - new Date(bTimeOld).getTime();
             case "rating":
                 return parseFloat(b.rating || "0") - parseFloat(a.rating || "0");

@@ -86,12 +86,17 @@ export default function ManhwaCard({ manhwa, position }: ManhwaCardProps) {
                     </div>
                 )}
 
-                {/* Status Badge (Footer Card) */}
+                {/* Status Badge & Total Chapters (Footer Card) */}
                 <div className="mt-auto pt-2 border-t border-neutral-800 flex justify-between items-center">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${manhwa.status === "Ongoing" ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${manhwa.status === "Berjalan" ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
                         }`}>
                         {manhwa.status}
                     </span>
+                    {manhwa.total_chapters > 0 && (
+                        <span className="text-[10px] text-gray-500 font-medium">
+                            {manhwa.total_chapters} Ch
+                        </span>
+                    )}
                 </div>
             </div>
         </Link>
