@@ -1,75 +1,49 @@
-import MonetagBanner from './MonetagBanner';
-import MonetagInPage from './MonetagInPage';
+import AdsterraBanner from './AdsterraBanner';
 
-// --- ZONE ID MONETAG (GANTI DENGAN ZONE ID DARI DASHBOARD MONETAG) ---
-// Dapatkan Zone ID dari: https://publishers.monetag.com/
-// Buat zone baru untuk setiap format iklan yang diinginkan
-const ZONES = {
-    // Banner Ads - Buat zone "Display Banner" di Monetag dashboard
-    BANNER_DESKTOP: 0,    // TODO: Ganti dengan Zone ID asli untuk banner desktop
-    BANNER_MOBILE: 0,     // TODO: Ganti dengan Zone ID asli untuk banner mobile
-
-    // In-Page Push / Vignette - Format iklan overlay
-    IN_PAGE_PUSH: 0,      // TODO: Ganti dengan Zone ID asli untuk in-page push
-
-    // Social Bar / Smart Link (diload via sw.js)
-    SOCIAL_BAR: 10602470, // Sudah ada di sw.js
+// --- KEY IKLAN ADSTERRA (untuk Banner) ---
+const ADSTERRA_KEYS = {
+    BANNER_728: "2b9a10a1176b4933d587c8973a6b7ceb", // Banner 728x90 (Desktop)
+    BANNER_300: "f94af59154f1ae4d546801e871fcc67e", // Banner 300x250 (Mobile)
 };
 
 /**
- * 1. Banner Besar (Desktop Only)
+ * 1. Banner Besar (Desktop Only - 728x90)
  * Cocok untuk Header atau di atas konten utama.
  */
 export function BannerAd({ className = '' }: { className?: string }) {
-    if (!ZONES.BANNER_DESKTOP) return null;
     return (
         <div className={`hidden md:block ${className}`}>
-            <MonetagBanner zoneId={ZONES.BANNER_DESKTOP} />
+            <AdsterraBanner size="728x90" adKey={ADSTERRA_KEYS.BANNER_728} />
         </div>
     );
 }
 
 /**
  * 2. Responsive Banner Ad
- * Menampilkan banner yang sesuai untuk Desktop dan Mobile.
+ * Menampilkan 728x90 di Desktop dan 300x250 di Mobile.
+ * Menggunakan Adsterra Banner.
  */
 export function ResponsiveAd({ className = '' }: { className?: string }) {
-    // Jika belum ada zone ID, tampilkan placeholder
-    if (!ZONES.BANNER_DESKTOP && !ZONES.BANNER_MOBILE) {
-        return (
-            <div className={`w-full flex justify-center ${className}`}>
-                <div className="w-full max-w-[728px] h-[90px] md:h-[90px] bg-neutral-900/50 rounded-lg border border-dashed border-neutral-800 flex items-center justify-center text-gray-600 text-xs">
-                    Monetag Ad Zone (Belum dikonfigurasi)
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className={`w-full flex justify-center ${className}`}>
-            {/* Mobile Banner */}
-            {ZONES.BANNER_MOBILE > 0 && (
-                <div className="block md:hidden w-full">
-                    <MonetagBanner zoneId={ZONES.BANNER_MOBILE} />
-                </div>
-            )}
+            {/* Mobile: Banner 300x250 */}
+            <div className="block md:hidden">
+                <AdsterraBanner size="300x250" adKey={ADSTERRA_KEYS.BANNER_300} />
+            </div>
 
-            {/* Desktop Banner */}
-            {ZONES.BANNER_DESKTOP > 0 && (
-                <div className="hidden md:block w-full">
-                    <MonetagBanner zoneId={ZONES.BANNER_DESKTOP} />
-                </div>
-            )}
+            {/* Desktop: Banner 728x90 */}
+            <div className="hidden md:block">
+                <AdsterraBanner size="728x90" adKey={ADSTERRA_KEYS.BANNER_728} />
+            </div>
         </div>
     );
 }
 
 /**
- * 3. In-Page Push Ad
- * Iklan overlay/vignette yang muncul di halaman.
- * Tidak perlu container visual, script akan menampilkan iklan sendiri.
+ * 3. Floating Ad
+ * Monetag OnClick & Vignette sudah di-handle via layout.tsx.
+ * Komponen ini return null.
  */
 export function FloatingAd({ className = '' }: { className?: string }) {
-    if (!ZONES.IN_PAGE_PUSH) return null;
-    return <MonetagInPage zoneId={ZONES.IN_PAGE_PUSH} className={className} />;
+    return null;
 }
