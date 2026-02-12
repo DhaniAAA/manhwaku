@@ -95,6 +95,8 @@ export default function RootLayout({
         {/* Monetag Verification Meta Tag */}
         <meta name="monetag" content="92d3f15e8778cc11dee26360b46235c1" />
 
+
+
         {/* Structured Data untuk SEO - Website Schema */}
         <WebsiteJsonLd
           name="ManhwaKu"
