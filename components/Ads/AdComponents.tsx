@@ -13,7 +13,7 @@ const ZONES = {
     IN_PAGE_PUSH: 0,      // TODO: Ganti dengan Zone ID asli untuk in-page push
 
     // Social Bar / Smart Link (diload via sw.js)
-    SOCIAL_BAR: 10602421, // Sudah ada di sw.js
+    SOCIAL_BAR: 10602470, // Sudah ada di sw.js
 };
 
 /**

@@ -139,6 +139,26 @@ export default function RootLayout({
           `}
         </Script>
 
+        {/* Monetag OnClick / Popunder (Zone: 10602561) */}
+        <Script id="monetag-onclick" strategy="afterInteractive">
+          {`
+            (function(s){
+              s.dataset.zone='10602561';
+              s.src='https://al5sm.com/tag.min.js';
+            })([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+          `}
+        </Script>
+
+        {/* Monetag Vignette (Zone: 10602569) */}
+        <Script id="monetag-vignette" strategy="afterInteractive">
+          {`
+            (function(s){
+              s.dataset.zone = '10602569';
+              s.src = 'https://gizokraijaw.net/vignette.min.js';
+            })([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))
+          `}
+        </Script>
+
         {/* Google Tag Manager (NoScript) - Wajib di Body */}
         <noscript>
           <iframe
