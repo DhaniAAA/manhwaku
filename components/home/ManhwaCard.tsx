@@ -47,8 +47,27 @@ export default function ManhwaCard({ manhwa, position }: ManhwaCardProps) {
                     </div>
                 )}
 
+                {/* Badge Type Komik (Bendera) di Pojok Kanan Atas */}
+                {manhwa.type && (
+                    <div className="absolute top-2 right-2 z-10" title={manhwa.type}>
+                        <img
+                            src={
+                                manhwa.type.toLowerCase() === "manhwa"
+                                    ? "/assets/bendera/south-korea.png"
+                                    : manhwa.type.toLowerCase() === "manhua"
+                                        ? "/assets/bendera/china.png"
+                                        : manhwa.type.toLowerCase() === "manga"
+                                            ? "/assets/bendera/japan.png"
+                                            : ""
+                            }
+                            alt={manhwa.type}
+                            className="w-6 h-6 rounded-sm shadow-md drop-shadow-lg"
+                        />
+                    </div>
+                )}
+
                 <img
-                    src={manhwa.cover_url}
+                    src={manhwa.cover_url || "https://placehold.co/300x400?text=No+Image"}
                     alt={manhwa.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"

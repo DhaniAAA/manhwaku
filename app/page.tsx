@@ -16,31 +16,42 @@ export default function Home() {
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+    const [chaptersUpdateTimes, setChaptersUpdateTimes] = useState<Record<string, string>>({});
+
+    // Fetch last modified times of chapters.json from Supabase Storage
+    useEffect(() => {
+        const fetchUpdateTimes = async () => {
+            try {
+                const res = await fetch("/api/chapters_update_times");
+                if (res.ok) {
+                    const data = await res.json();
+                    setChaptersUpdateTimes(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch chapters update times:", error);
+            }
+        };
+        fetchUpdateTimes();
+    }, []);
 
     // Filter Pencarian
     const filteredManhwas = manhwas.filter((item) =>
         item.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Helper function: Ambil timestamp dari waktu rilis chapter terbaru
-    // Prioritas: latestChapters[0].waktu_rilis → lastUpdateTime (Supabase)
+    // Helper function: Ambil timestamp dari last modified chapters.json di Storage
     const getUpdateTimestamp = (manhwa: typeof manhwas[0]): number => {
-        // Prioritas 1: waktu rilis chapter terbaru
-        if (manhwa.latestChapters && manhwa.latestChapters.length > 0) {
-            const timestamp = new Date(manhwa.latestChapters[0].waktu_rilis).getTime();
-            if (!isNaN(timestamp)) return timestamp;
-        }
-
-        // Fallback: lastUpdateTime dari Supabase
-        if (manhwa.lastUpdateTime) {
-            const timestamp = new Date(manhwa.lastUpdateTime).getTime();
+        // Gunakan last modified dari chapters.json di Supabase Storage
+        const storageTime = chaptersUpdateTimes[manhwa.slug];
+        if (storageTime) {
+            const timestamp = new Date(storageTime).getTime();
             if (!isNaN(timestamp)) return timestamp;
         }
 
         return 0;
     };
 
-    // Sort berdasarkan waktu rilis chapter terbaru (Update Terbaru)
+    // Sort berdasarkan last modified chapters.json (Update Terbaru)
     const sortedManhwas = [...filteredManhwas].sort((a, b) => {
         const aTimestamp = getUpdateTimestamp(a);
         const bTimestamp = getUpdateTimestamp(b);

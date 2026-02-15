@@ -25,6 +25,23 @@ export default function JelajahiPage() {
     const [sortBy, setSortBy] = useState<string>("newest");
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilters, setShowFilters] = useState(true);
+    const [chaptersUpdateTimes, setChaptersUpdateTimes] = useState<Record<string, string>>({});
+
+    // Fetch last modified times of chapters.json from storage
+    useEffect(() => {
+        const fetchUpdateTimes = async () => {
+            try {
+                const res = await fetch("/api/chapters_update_times");
+                if (res.ok) {
+                    const data = await res.json();
+                    setChaptersUpdateTimes(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch chapters update times:", error);
+            }
+        };
+        fetchUpdateTimes();
+    }, []);
 
     // Get unique types from data
     const types = ["all", ...new Set(manhwas.map(m => m.type).filter(Boolean))];
@@ -73,15 +90,16 @@ export default function JelajahiPage() {
     });
 
     // Sort manhwas
+    // "newest" & "oldest" menggunakan last modified dari chapters.json di Supabase Storage
     const sortedManhwas = [...filteredManhwas].sort((a, b) => {
         switch (sortBy) {
             case "newest":
-                const aTime = a.lastUpdateTime || a.latestChapters?.[0]?.waktu_rilis || "";
-                const bTime = b.lastUpdateTime || b.latestChapters?.[0]?.waktu_rilis || "";
+                const aTime = chaptersUpdateTimes[a.slug] || "";
+                const bTime = chaptersUpdateTimes[b.slug] || "";
                 return new Date(bTime).getTime() - new Date(aTime).getTime();
             case "oldest":
-                const aTimeOld = a.lastUpdateTime || a.latestChapters?.[0]?.waktu_rilis || "";
-                const bTimeOld = b.lastUpdateTime || b.latestChapters?.[0]?.waktu_rilis || "";
+                const aTimeOld = chaptersUpdateTimes[a.slug] || "";
+                const bTimeOld = chaptersUpdateTimes[b.slug] || "";
                 return new Date(aTimeOld).getTime() - new Date(bTimeOld).getTime();
             case "rating":
                 return parseFloat(b.rating || "0") - parseFloat(a.rating || "0");
