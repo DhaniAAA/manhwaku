@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { trackSearch } from "@/lib/gtm";
 import { useManhwaData } from "@/hooks/useManhwaData";
+import { useChaptersUpdateTimes } from "@/hooks/useChaptersUpdateTimes";
 import { ITEMS_PER_PAGE, SEARCH_DEBOUNCE_DELAY } from "@/constants/app";
 import Navbar from "@/components/ui/Navbar";
 import HeroSlider from "@/components/home/HeroSlider";
@@ -13,30 +14,10 @@ import ReadingHistory from "@/components/home/ReadingHistory";
 
 export default function Home() {
     const { manhwas, loading } = useManhwaData();
+    const { chaptersUpdateTimes } = useChaptersUpdateTimes();
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
-    const [chaptersUpdateTimes, setChaptersUpdateTimes] = useState<Record<string, string>>({});
-
-    // Fetch last modified times of chapters.json from Supabase Storage (auto-update every 5 menit)
-    useEffect(() => {
-        const fetchUpdateTimes = async () => {
-            try {
-                const res = await fetch("/api/chapters_update_times");
-                if (res.ok) {
-                    const data = await res.json();
-                    setChaptersUpdateTimes(data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch chapters update times:", error);
-            }
-        };
-
-        fetchUpdateTimes();
-        const interval = setInterval(fetchUpdateTimes, 5 * 60 * 1000); // 5 menit
-
-        return () => clearInterval(interval);
-    }, []);
 
     // Filter Pencarian
     const filteredManhwas = manhwas.filter((item) =>

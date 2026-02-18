@@ -90,9 +90,9 @@ export async function GET() {
             }
         }
 
-        // 4. Cache the result
+        // 4. Cache the result (1 menit — supaya Realtime refetch dapat data fresh)
         cachedData = updateTimes;
-        cachedUntil = now + 10 * 60 * 1000; // 10 menit
+        cachedUntil = now + 1 * 60 * 1000; // 1 menit
 
         return NextResponse.json(updateTimes);
     } catch (err) {
