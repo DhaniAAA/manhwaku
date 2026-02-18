@@ -27,7 +27,7 @@ export default function JelajahiPage() {
     const [showFilters, setShowFilters] = useState(true);
     const [chaptersUpdateTimes, setChaptersUpdateTimes] = useState<Record<string, string>>({});
 
-    // Fetch last modified times of chapters.json from storage
+    // Fetch last modified times of chapters.json from storage (auto-update every 5 menit)
     useEffect(() => {
         const fetchUpdateTimes = async () => {
             try {
@@ -40,7 +40,11 @@ export default function JelajahiPage() {
                 console.error("Failed to fetch chapters update times:", error);
             }
         };
+
         fetchUpdateTimes();
+        const interval = setInterval(fetchUpdateTimes, 5 * 60 * 1000); // 5 menit
+
+        return () => clearInterval(interval);
     }, []);
 
     // Get unique types from data

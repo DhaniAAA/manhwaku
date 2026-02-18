@@ -18,7 +18,7 @@ export default function Home() {
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
     const [chaptersUpdateTimes, setChaptersUpdateTimes] = useState<Record<string, string>>({});
 
-    // Fetch last modified times of chapters.json from Supabase Storage
+    // Fetch last modified times of chapters.json from Supabase Storage (auto-update every 5 menit)
     useEffect(() => {
         const fetchUpdateTimes = async () => {
             try {
@@ -31,7 +31,11 @@ export default function Home() {
                 console.error("Failed to fetch chapters update times:", error);
             }
         };
+
         fetchUpdateTimes();
+        const interval = setInterval(fetchUpdateTimes, 5 * 60 * 1000); // 5 menit
+
+        return () => clearInterval(interval);
     }, []);
 
     // Filter Pencarian
@@ -115,22 +119,41 @@ export default function Home() {
                     {/* Left Column - Main Content */}
                     <main className="flex-1 min-w-0">
                         {/* Section Header */}
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="h-8 w-1.5 bg-blue-500 rounded-full"></div>
-                            <h2 className="text-2xl font-bold text-white">Update Terbaru</h2>
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-1.5 bg-linear-to-b from-blue-500 to-cyan-400 rounded-full"></div>
+                                <h2 className="text-2xl font-bold text-white">Update Terbaru</h2>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Auto-refresh 5 menit</span>
+                            </div>
                         </div>
                         {/* Loading State */}
                         {loading && (
-                            <div className="flex flex-col justify-center items-center h-64 space-y-4">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                                <p className="text-gray-500 animate-pulse">Sedang memuat komik...</p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                {[...Array(10)].map((_, i) => (
+                                    <div key={i} className="animate-pulse">
+                                        <div className="bg-neutral-800 rounded-xl aspect-3/4 mb-3"></div>
+                                        <div className="h-4 bg-neutral-800 rounded w-3/4 mb-2"></div>
+                                        <div className="h-3 bg-neutral-800 rounded w-1/2"></div>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
                         {/* Empty State */}
                         {!loading && sortedManhwas.length === 0 && (
-                            <div className="text-center py-20 bg-neutral-900 rounded-xl border border-dashed border-neutral-800">
-                                <p className="text-gray-400 text-lg">Komik "{searchTerm}" tidak ditemukan.</p>
+                            <div className="flex flex-col items-center justify-center py-20 bg-neutral-900/50 rounded-2xl border border-neutral-800">
+                                <div className="w-20 h-20 mb-4 rounded-full bg-neutral-800 flex items-center justify-center">
+                                    <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <p className="text-gray-400 text-lg mb-2">Tidak ada hasil untuk "{searchTerm}"</p>
+                                <p className="text-gray-500 text-sm">Coba kata kunci lain atau hapus filter</p>
                             </div>
                         )}
 
