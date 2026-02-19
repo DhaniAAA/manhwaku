@@ -7,22 +7,11 @@
  * 3. Supabase Realtime subscription pada table `storage.objects`
  *    → Ketika chapters.json berubah di bucket, langsung refetch otomatis
  *
- * Dengan Realtime, tidak perlu lagi "pancing" pakai Postman.
- * Setiap kali scraper upload/update chapters.json di Supabase Storage,
- * hook ini akan langsung detect dan refetch data terbaru.
- *
  * PENTING: Untuk Realtime pada `storage.objects`, kamu perlu enable
  * Realtime pada table `objects` di schema `storage` via Supabase Dashboard:
  *   Database → Replication → Supabase Realtime → Toggle ON `storage.objects`
  *
- * @returns {Object}
- *   - chaptersUpdateTimes: Record<string, string> - slug → last updated timestamp
- *   - isRefreshing: boolean - true saat sedang fetch ulang data
- *
- * @example
- * ```tsx
- * const { chaptersUpdateTimes, isRefreshing } = useChaptersUpdateTimes();
- * ```
+ * Jika Realtime belum di-enable, hook tetap bekerja via polling fallback.
  */
 
 "use client";
@@ -40,56 +29,76 @@ export function useChaptersUpdateTimes() {
     const [chaptersUpdateTimes, setChaptersUpdateTimes] = useState<Record<string, string>>({});
     const [isRefreshing, setIsRefreshing] = useState(false);
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isMounted = useRef(true);
 
     /**
      * Fetch data dari API endpoint
+     * @param forceRefresh - true untuk bypass server-side cache (dipanggil saat Realtime event)
      */
-    const fetchUpdateTimes = useCallback(async () => {
+    const fetchUpdateTimes = useCallback(async (forceRefresh = false) => {
         try {
             setIsRefreshing(true);
-            const res = await fetch("/api/chapters_update_times", {
+
+            const url = forceRefresh
+                ? "/api/chapters_update_times?refresh=true"
+                : "/api/chapters_update_times";
+
+            // Timeout 30 detik agar tidak stuck pending selamanya
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 30000);
+
+            const res = await fetch(url, {
                 cache: "no-store",
-                headers: { "Cache-Control": "no-cache" },
+                signal: controller.signal,
             });
-            if (res.ok) {
+
+            clearTimeout(timeout);
+
+            if (res.ok && isMounted.current) {
                 const data = await res.json();
                 if (data && typeof data === "object" && !data.error) {
                     setChaptersUpdateTimes(data);
                     console.log(
-                        "[Realtime] Chapters update times refreshed:",
-                        Object.keys(data).length,
-                        "entries"
+                        `[UpdateTimes] Refreshed: ${Object.keys(data).length} entries`,
+                        forceRefresh ? "(force)" : "(cached)",
+                        `| X-Cache: ${res.headers.get("X-Cache") || "N/A"}`
                     );
                 }
             }
         } catch (error) {
-            console.error("[Realtime] Failed to fetch chapters update times:", error);
+            if (error instanceof DOMException && error.name === "AbortError") {
+                console.warn("[UpdateTimes] Request timed out after 30s");
+            } else {
+                console.error("[UpdateTimes] Failed to fetch:", error);
+            }
         } finally {
-            setIsRefreshing(false);
+            if (isMounted.current) {
+                setIsRefreshing(false);
+            }
         }
     }, []);
 
     /**
      * Debounced refetch — dipanggil ketika Realtime event diterima.
-     * Mencegah spam refetch jika banyak file berubah sekaligus (misal batch upload).
+     * Menggunakan forceRefresh=true untuk bypass server cache.
      */
     const debouncedRefetch = useCallback(() => {
         if (debounceTimer.current) {
             clearTimeout(debounceTimer.current);
         }
         debounceTimer.current = setTimeout(() => {
-            console.log("[Realtime] Storage change detected → refetching update times...");
-            fetchUpdateTimes();
+            console.log("[Realtime] Storage change detected → force refetching...");
+            fetchUpdateTimes(true); // force refresh!
         }, REALTIME_DEBOUNCE_MS);
     }, [fetchUpdateTimes]);
 
     useEffect(() => {
-        // 1. Fetch awal saat mount
-        fetchUpdateTimes();
+        isMounted.current = true;
+
+        // 1. Fetch awal saat mount (pakai cache)
+        fetchUpdateTimes(false);
 
         // 2. Setup Supabase Realtime subscription pada storage.objects
-        //    Ini akan mendeteksi INSERT/UPDATE/DELETE pada file di Supabase Storage.
-        //    Ketika chapters.json diupdate oleh scraper, event akan ter-trigger.
         const channel = supabase
             .channel("storage-chapters-updates")
             .on(
@@ -122,18 +131,15 @@ export function useChaptersUpdateTimes() {
                 console.log("[Realtime] Subscription status:", status);
             });
 
-        // 3. Polling fallback — kalau Realtime belum di-enable atau terputus
-        const pollingInterval = setInterval(fetchUpdateTimes, POLLING_INTERVAL_MS);
+        // 3. Polling fallback (pakai cache — tidak force)
+        const pollingInterval = setInterval(() => fetchUpdateTimes(false), POLLING_INTERVAL_MS);
 
         // Cleanup
         return () => {
-            // Unsubscribe Realtime
+            isMounted.current = false;
             supabase.removeChannel(channel);
-
-            // Clear polling
             clearInterval(pollingInterval);
 
-            // Clear debounce timer
             if (debounceTimer.current) {
                 clearTimeout(debounceTimer.current);
             }
