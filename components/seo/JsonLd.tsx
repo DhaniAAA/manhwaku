@@ -17,7 +17,6 @@ export function ManhwaJsonLd({
     coverUrl,
     author,
     genres,
-    status,
     rating,
     url,
 }: ManhwaJsonLdProps) {

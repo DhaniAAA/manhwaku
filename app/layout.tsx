@@ -43,9 +43,6 @@ export const metadata: Metadata = {
   creator: "ManhwaKu",
   publisher: "ManhwaKu",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.manhwaku.biz.id"),
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     locale: "id_ID",
