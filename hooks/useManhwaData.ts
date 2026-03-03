@@ -38,7 +38,7 @@ export function useManhwaData() {
         const fetchData = async () => {
             try {
                 // Fetch data dari endpoint API
-                const res = await fetch("/api/all_manhwa");
+                const res = await fetch("/api/all_manhwa", { cache: "no-store" });
 
                 // Cek apakah response OK (status 200-299)
                 if (!res.ok) throw new Error("Gagal mengambil data");

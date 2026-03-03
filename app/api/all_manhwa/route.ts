@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
-export const revalidate = 3600;
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +10,6 @@ const supabase = createClient(
     {
         auth: { persistSession: false },
         global: {
-            // Optimasi fetch di Edge Runtime
             fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
         },
     }
@@ -25,13 +23,13 @@ let cachedUntil = 0;
 
 export async function GET() {
     try {
-        // 1. Gunakan signed URL + redirect (paling cepat!)
         const now = Date.now();
 
+        // Gunakan cache singkat (1 menit)
         if (!cachedSignedUrl || now > cachedUntil) {
             const { data, error } = await supabase.storage
                 .from(BUCKET)
-                .createSignedUrl(PATH, 3300); // 55 menit (max 1 jam untuk anon key)
+                .createSignedUrl(PATH, 3600); // Token valid 1 jam
 
             if (error || !data?.signedUrl) {
                 console.error("[Supabase] Signed URL error:", error?.message);
@@ -42,10 +40,12 @@ export async function GET() {
             }
 
             cachedSignedUrl = data.signedUrl;
-            cachedUntil = now + 55 * 60 * 1000;
+            cachedUntil = now + 1 * 60 * 1000; // Cache 1 menit
         }
-        return NextResponse.redirect(cachedSignedUrl, 307);
 
+        // Redirect tanpa browser caching dengan nambah timestamp ke hash atau di redirect header
+        // Kita tidak nambah querystring ke signedUrl karena Supabase akan menganggap signature invalid
+        return NextResponse.redirect(cachedSignedUrl, 307);
 
     } catch (err) {
         console.error("[API] Unexpected error:", err);

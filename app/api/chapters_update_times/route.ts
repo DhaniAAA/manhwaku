@@ -24,8 +24,8 @@ const BUCKET = "manga-data";
 let cachedData: Record<string, string> | null = null;
 let cachedUntil = 0;
 
-// Cache duration: 5 menit
-const CACHE_DURATION_MS = 5 * 60 * 1000;
+// Cache duration: 30 detik
+const CACHE_DURATION_MS = 30 * 1000;
 
 export async function GET(request: NextRequest) {
     try {

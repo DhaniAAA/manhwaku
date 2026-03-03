@@ -4,7 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
-export const revalidate = 3600; // optional: ISR fallback
 
 // Client sekali saja (module scope → reused antar invocation di Edge)
 const supabase = createClient(
@@ -12,13 +11,13 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   {
     auth: { persistSession: false },
-    global: { fetch }, // gunakan native fetch (paling cepat)
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) },
   }
 );
 
 const BUCKET = "manga-data";
 
-// Simple in-memory cache untuk signed URL (valid ~55 menit)
+// Simple in-memory cache untuk signed URL (valid ~1 menit)
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 export async function GET(
@@ -46,10 +45,10 @@ export async function GET(
     if (cached && now < cached.expiresAt) {
       signedUrl = cached.url;
     } else {
-      // Generate signed URL (hanya 1 request ke Supabase tiap ~55 menit per file)
+      // Generate signed URL
       const { data, error } = await supabase.storage
         .from(BUCKET)
-        .createSignedUrl(filePath, 3600); // 1 jam (bisa sampai 7 hari pakai service key)
+        .createSignedUrl(filePath, 3600); // 1 jam
 
       if (error || !data?.signedUrl) {
         console.error(`[Supabase] Signed URL failed for ${filePath}:`, error?.message);
@@ -62,7 +61,7 @@ export async function GET(
       signedUrl = data.signedUrl;
       signedUrlCache.set(cacheKey, {
         url: signedUrl,
-        expiresAt: now + 55 * 60 * 1000, // 55 menit (safe margin)
+        expiresAt: now + 1 * 60 * 1000, // 1 menit
       });
     }
 

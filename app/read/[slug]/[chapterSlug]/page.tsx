@@ -10,7 +10,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.manhwaku.biz.i
 async function getManhwaMetadata(slug: string): Promise<ManhwaDetail | null> {
   try {
     const res = await fetch(`${SITE_URL}/api/manhwa/${slug}?type=metadata`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 60 },
     });
     if (!res.ok) return null;
     return await res.json();
@@ -23,7 +23,7 @@ async function getManhwaMetadata(slug: string): Promise<ManhwaDetail | null> {
 async function getManhwaChapters(slug: string): Promise<ChapterDetail[]> {
   try {
     const res = await fetch(`${SITE_URL}/api/manhwa/${slug}?type=chapters`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 60 },
     });
     if (!res.ok) return [];
 
