@@ -144,14 +144,19 @@ function Terminal({ logs, running, done, logsEndRef }: {
     );
 }
 
-// ─── Scrape Modal ─────────────────────────────────────────────
+// ─── Scrape Modal ───────────────────────────────────────────
 function ScrapeModal({ comic, onClose, onDone }: { comic: ComicEntry; onClose: () => void; onDone: () => void }) {
     const { logs, running, done, logsEndRef, runStream } = useStreamingLogs();
+    const [ackCloudflare, setAckCloudflare] = useState(false);
+    const [started, setStarted] = useState(false);
 
-    useEffect(() => {
+    // Detect production
+    const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1");
+
+    const handleStart = () => {
+        setStarted(true);
         runStream("/api/admin/scrape", { url: comic.link }, () => setTimeout(onDone, 2000));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    };
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => { if (e.key === "Escape" && !running) onClose(); };
@@ -173,10 +178,31 @@ function ScrapeModal({ comic, onClose, onDone }: { comic: ComicEntry; onClose: (
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                {/* Terminal */}
-                <div className="p-4 flex-1">
+
+                {/* Body */}
+                <div className="p-4 flex-1 space-y-3">
+                    {/* Cloudflare Warning */}
+                    {isProduction && !started && (
+                        <div className="rounded-xl border border-red-700/50 bg-red-950/40 p-4">
+                            <div className="flex items-start gap-3">
+                                <svg className="w-5 h-5 text-red-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                <div className="flex-1">
+                                    <p className="text-red-400 font-semibold text-sm">Scraping dari production akan gagal (403)</p>
+                                    <p className="text-red-300/70 text-xs mt-1 leading-relaxed">
+                                        Komikindo.ch diproteksi Cloudflare. Gunakan <span className="font-mono bg-red-900/40 px-1 rounded">localhost:3000/admin</span> untuk scrape lewat IP lokal Anda.
+                                    </p>
+                                    <label className="flex items-center gap-2 mt-3 cursor-pointer group">
+                                        <input type="checkbox" checked={ackCloudflare} onChange={e => setAckCloudflare(e.target.checked)} className="w-4 h-4 accent-red-500 cursor-pointer" />
+                                        <span className="text-xs text-red-300/80 group-hover:text-red-300">Saya mengerti, tetap lanjutkan</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <Terminal logs={logs} running={running} done={done} logsEndRef={logsEndRef} />
                 </div>
+
                 {/* Footer */}
                 <div className="px-5 py-3 border-t border-neutral-800 flex items-center justify-between gap-3 shrink-0 bg-neutral-900/50">
                     {done ? (
@@ -185,11 +211,26 @@ function ScrapeModal({ comic, onClose, onDone }: { comic: ComicEntry; onClose: (
                             Berhasil! Data diperbarui.
                         </span>
                     ) : (
-                        <span className="text-neutral-500 text-xs">{running ? "Sedang berjalan..." : "Siap."}</span>
+                        <span className="text-neutral-500 text-xs">{running ? "Sedang berjalan..." : started ? "" : "Klik Mulai Scrape untuk memulai."}</span>
                     )}
-                    <button onClick={onClose} disabled={running} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${running ? "bg-neutral-800 text-neutral-600 cursor-not-allowed" : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700 cursor-pointer"}`}>
-                        Tutup
-                    </button>
+                    <div className="flex gap-2">
+                        {!running && !done && (
+                            <button
+                                onClick={handleStart}
+                                disabled={isProduction && !ackCloudflare}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${isProduction && !ackCloudflare
+                                    ? "bg-neutral-700 text-neutral-500 cursor-not-allowed"
+                                    : "bg-blue-600 text-white hover:bg-blue-500 cursor-pointer"
+                                    }`}
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                Mulai Scrape
+                            </button>
+                        )}
+                        <button onClick={onClose} disabled={running} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${running ? "bg-neutral-800 text-neutral-600 cursor-not-allowed" : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700 cursor-pointer"}`}>
+                            Tutup
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -290,6 +331,10 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     const [scrapeImages, setScrapeImages] = useState(false);
     const [progress, setProgress] = useState<ScrapeProgress | null>(null);
     const [summary, setSummary] = useState<{ successCount: number; skipCount: number; errorCount: number; total: number } | null>(null);
+    const [ackCloudflare, setAckCloudflare] = useState(false);
+
+    // Detect if running on production server (not localhost)
+    const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1");
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => { if (e.key === "Escape" && !running) onClose(); };
@@ -356,6 +401,26 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                 </div>
 
                 <div className="flex-1 overflow-auto p-5 space-y-4">
+                    {/* Cloudflare Warning */}
+                    {isProduction && (
+                        <div className="rounded-xl border border-red-700/50 bg-red-950/40 p-4">
+                            <div className="flex items-start gap-3">
+                                <svg className="w-5 h-5 text-red-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                <div className="flex-1">
+                                    <p className="text-red-400 font-semibold text-sm">Scraping dari production akan gagal (403)</p>
+                                    <p className="text-red-300/70 text-xs mt-1 leading-relaxed">
+                                        Komikindo.ch menggunakan Cloudflare yang memblokir request dari server/datacenter (Vercel).
+                                        Gunakan <span className="font-mono bg-red-900/40 px-1 rounded">localhost:3000/admin</span> di komputer lokal agar scraping berjalan lewat IP browser Anda.
+                                    </p>
+                                    <label className="flex items-center gap-2 mt-3 cursor-pointer group">
+                                        <input type="checkbox" checked={ackCloudflare} onChange={e => setAckCloudflare(e.target.checked)} className="w-4 h-4 accent-red-500 cursor-pointer" />
+                                        <span className="text-xs text-red-300/80 group-hover:text-red-300">Saya mengerti, tetap lanjutkan (mungkin sebagian besar akan error)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Config */}
                     {!running && !done && (
                         <div className="grid grid-cols-2 gap-4">
@@ -404,9 +469,9 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                             </div>
                             <div className="mt-2 flex items-center gap-2">
                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${progress.status === "done" ? "bg-emerald-900/50 text-emerald-400" :
-                                        progress.status === "skip" ? "bg-blue-900/50 text-blue-400" :
-                                            progress.status === "error" ? "bg-red-900/50 text-red-400" :
-                                                "bg-orange-900/50 text-orange-400"
+                                    progress.status === "skip" ? "bg-blue-900/50 text-blue-400" :
+                                        progress.status === "error" ? "bg-red-900/50 text-red-400" :
+                                            "bg-orange-900/50 text-orange-400"
                                     }`}>{progress.status.toUpperCase()}</span>
                                 <span className="text-xs text-neutral-400 font-mono truncate">{progress.slug}</span>
                             </div>
@@ -450,7 +515,14 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                     )}
                     <div className="flex gap-2">
                         {!running && (
-                            <button onClick={handleStart} className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-500 transition-colors cursor-pointer flex items-center gap-1.5">
+                            <button
+                                onClick={handleStart}
+                                disabled={isProduction && !ackCloudflare}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${isProduction && !ackCloudflare
+                                    ? "bg-neutral-700 text-neutral-500 cursor-not-allowed"
+                                    : "bg-orange-600 text-white hover:bg-orange-500 cursor-pointer"
+                                    }`}
+                            >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                                 {done ? "Mulai Ulang" : "Mulai Scrape"}
                             </button>
@@ -503,7 +575,7 @@ export default function AdminDashboard() {
     const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     return (
-        <div className="p-8 text-gray-200">
+        <div className="p-4 md:p-8 text-gray-200">
             {/* Modals */}
             {scrapeTarget && (
                 <ScrapeModal
@@ -526,52 +598,52 @@ export default function AdminDashboard() {
             )}
 
             {/* Header */}
-            <div className="mb-8 flex items-start justify-between gap-4">
+            <div className="mb-6 flex items-start justify-between gap-3">
                 <div>
-                    <h1 className="text-3xl font-black text-white tracking-tight">Dashboard Admin</h1>
-                    <p className="text-neutral-500 mt-1 text-sm">Manajemen konten & scraping ManhwaKu</p>
+                    <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Dashboard Admin</h1>
+                    <p className="text-neutral-500 mt-1 text-xs md:text-sm">Manajemen konten & scraping ManhwaKu</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <button
                         onClick={() => setShowScrapeAll(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-orange-600/15 border border-orange-600/25 text-orange-400 rounded-xl text-sm font-medium hover:bg-orange-600/25 hover:border-orange-500/40 transition-all cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 md:px-4 py-2 md:py-2.5 bg-orange-600/15 border border-orange-600/25 text-orange-400 rounded-xl text-xs md:text-sm font-medium hover:bg-orange-600/25 hover:border-orange-500/40 transition-all cursor-pointer"
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                        Scrape Semua
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        <span className="hidden sm:inline">Scrape Semua</span>
                     </button>
                     <button
                         onClick={() => setShowGenerateModal(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-purple-600/15 border border-purple-600/25 text-purple-400 rounded-xl text-sm font-medium hover:bg-purple-600/25 hover:border-purple-500/40 transition-all cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 md:px-4 py-2 md:py-2.5 bg-purple-600/15 border border-purple-600/25 text-purple-400 rounded-xl text-xs md:text-sm font-medium hover:bg-purple-600/25 hover:border-purple-500/40 transition-all cursor-pointer"
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                        Generate Daftar
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                        <span className="hidden sm:inline">Generate Daftar</span>
                     </button>
                 </div>
             </div>
 
             {/* Stats */}
             {loading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
                     {[...Array(3)].map((_, i) => (
-                        <div key={i} className="bg-neutral-900 rounded-2xl border border-neutral-800 p-6 animate-pulse">
-                            <div className="h-3 bg-neutral-800 rounded w-24 mb-4" /><div className="h-8 bg-neutral-800 rounded w-16" />
+                        <div key={i} className="bg-neutral-900 rounded-2xl border border-neutral-800 p-4 md:p-6 animate-pulse">
+                            <div className="h-3 bg-neutral-800 rounded w-20 mb-3" /><div className="h-7 bg-neutral-800 rounded w-12" />
                         </div>
                     ))}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
                     {[
-                        { label: "Total Komik (Daftar)", value: data?.total ?? 0, color: "blue", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
-                        { label: "Sudah di Supabase", value: data?.synced ?? 0, color: "emerald", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
-                        { label: "Belum di-scrape", value: data?.notSynced ?? 0, color: "amber", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
+                        { label: "Total Komik", value: data?.total ?? 0, color: "blue", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
+                        { label: "Sudah Sync", value: data?.synced ?? 0, color: "emerald", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
+                        { label: "Belum Sync", value: data?.notSynced ?? 0, color: "amber", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
                     ].map(({ label, value, color, icon }) => (
-                        <div key={label} className="bg-neutral-900 rounded-2xl border border-neutral-800 p-6 flex items-center gap-4 hover:border-neutral-700 transition-colors">
-                            <div className={`w-12 h-12 rounded-xl bg-${color}-600/15 flex items-center justify-center shrink-0`}>
-                                <svg className={`w-6 h-6 text-${color}-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} /></svg>
+                        <div key={label} className="bg-neutral-900 rounded-2xl border border-neutral-800 p-4 flex items-center gap-3 hover:border-neutral-700 transition-colors">
+                            <div className={`w-10 h-10 rounded-xl bg-${color}-600/15 flex items-center justify-center shrink-0`}>
+                                <svg className={`w-5 h-5 text-${color}-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} /></svg>
                             </div>
                             <div>
-                                <p className="text-neutral-500 text-xs font-medium uppercase tracking-wider mb-1">{label}</p>
-                                <p className={`text-3xl font-black text-${color}-400`}>{value}</p>
+                                <p className="text-neutral-500 text-[10px] font-medium uppercase tracking-wider mb-0.5">{label}</p>
+                                <p className={`text-2xl font-black text-${color}-400`}>{value}</p>
                             </div>
                         </div>
                     ))}
@@ -580,43 +652,45 @@ export default function AdminDashboard() {
 
             {/* Progress Bar */}
             {data && (
-                <div className="bg-neutral-900 rounded-2xl border border-neutral-800 p-5 mb-8">
+                <div className="bg-neutral-900 rounded-2xl border border-neutral-800 p-4 mb-6">
                     <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-semibold text-white">Progress Sync ke Supabase</p>
-                        <div className="flex items-center gap-3">
-                            <p className="text-sm text-neutral-400"><span className="text-emerald-400 font-bold">{data.synced}</span> / {data.total} komik</p>
-                            <button onClick={fetchData} className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+                        <p className="text-sm font-semibold text-white">Progress Sync</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-xs text-neutral-400"><span className="text-emerald-400 font-bold">{data.synced}</span> / {data.total}</p>
+                            <button onClick={fetchData} className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                Refresh
+                                <span className="hidden sm:inline">Refresh</span>
                             </button>
                         </div>
                     </div>
                     <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(data.synced / data.total) * 100}%`, background: "linear-gradient(to right, #3b82f6, #10b981)" }} />
                     </div>
-                    <p className="text-xs text-neutral-500 mt-2">{Math.round((data.synced / data.total) * 100)}% sudah tersinkronisasi</p>
+                    <p className="text-xs text-neutral-500 mt-2">{Math.round((data.synced / data.total) * 100)}% tersinkronisasi</p>
                 </div>
             )}
 
             {/* Table */}
             <div className="bg-neutral-900 rounded-2xl border border-neutral-800 overflow-hidden">
                 {/* Filters */}
-                <div className="p-5 border-b border-neutral-800 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                    <div>
-                        <h2 className="text-lg font-bold text-white">Daftar Komik</h2>
-                        <p className="text-neutral-500 text-xs mt-0.5">{filtered.length} komik · halaman {page} dari {totalPages}</p>
+                <div className="p-4 border-b border-neutral-800 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-base font-bold text-white">Daftar Komik</h2>
+                            <p className="text-neutral-500 text-xs mt-0.5">{filtered.length} komik · hal. {page}/{totalPages}</p>
+                        </div>
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
-                        <div className="relative">
+                        <div className="relative flex-1 min-w-[140px]">
                             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                            <input type="text" placeholder="Cari judul..." value={search} onChange={(e) => setSearch(e.target.value)} className="bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors w-44" />
+                            <input type="text" placeholder="Cari judul..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors" />
                         </div>
-                        <select value={filter} onChange={(e) => setFilter(e.target.value as any)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 cursor-pointer">
+                        <select value={filter} onChange={(e) => setFilter(e.target.value as any)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 cursor-pointer flex-1 min-w-[120px]">
                             <option value="all">Semua Status</option>
                             <option value="synced">✅ Sudah Sync</option>
                             <option value="not_synced">⚠️ Belum Sync</option>
                         </select>
-                        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 cursor-pointer">
+                        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 cursor-pointer flex-1 min-w-[100px]">
                             <option value="all">Semua Tipe</option>
                             <option value="Manhwa">Manhwa</option>
                             <option value="Manhua">Manhua</option>
@@ -625,8 +699,62 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* Table body */}
-                <div className="overflow-x-auto">
+                {/* ── Mobile Card List (< md) ── */}
+                <div className="md:hidden divide-y divide-neutral-800/60">
+                    {loading ? (
+                        [...Array(5)].map((_, i) => (
+                            <div key={i} className="p-4 flex items-center gap-3 animate-pulse">
+                                <div className="w-10 h-14 bg-neutral-800 rounded-lg shrink-0" />
+                                <div className="flex-1">
+                                    <div className="h-3 bg-neutral-800 rounded w-3/4 mb-2" />
+                                    <div className="h-2.5 bg-neutral-800 rounded w-1/2 mb-3" />
+                                    <div className="h-7 bg-neutral-800 rounded-lg w-20" />
+                                </div>
+                            </div>
+                        ))
+                    ) : paginated.length === 0 ? (
+                        <div className="py-16 text-center text-neutral-500 text-sm">Tidak ada komik yang cocok</div>
+                    ) : (
+                        paginated.map((comic, idx) => (
+                            <div key={`${comic.slug}-${idx}`} className="p-4 flex items-start gap-3 hover:bg-neutral-800/30 transition-colors">
+                                <img
+                                    src={comic.image || "https://placehold.co/80x112?text=N/A"}
+                                    alt={comic.title}
+                                    className="w-10 h-14 object-cover rounded-lg shrink-0 bg-neutral-800"
+                                    onError={(e) => ((e.target as HTMLImageElement).src = "https://placehold.co/80x112?text=N/A")}
+                                />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-white font-semibold text-sm leading-tight truncate">{comic.title}</p>
+                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${comic.type === "Manhwa" ? "bg-blue-900/30 text-blue-400" : comic.type === "Manhua" ? "bg-purple-900/30 text-purple-400" : "bg-orange-900/30 text-orange-400"}`}>{comic.type}</span>
+                                        {comic.inSupabase ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-700/30 font-medium">
+                                                <span className="w-1 h-1 rounded-full bg-emerald-400" />Synced · {comic.totalChapters} ch
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-900/20 text-amber-400 border border-amber-700/30 font-medium">
+                                                <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />Belum Sync
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center justify-between mt-2.5">
+                                        <span className="text-neutral-600 text-xs">{timeAgo(comic.lastUpdated)}</span>
+                                        <button
+                                            onClick={() => setScrapeTarget(comic)}
+                                            className="inline-flex items-center gap-1 bg-blue-600/15 text-blue-400 border border-blue-600/20 px-2.5 py-1 rounded-lg text-xs font-medium hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all cursor-pointer"
+                                        >
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                            Scrape
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* ── Desktop Table (≥ md) ── */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-neutral-800">
@@ -701,10 +829,11 @@ export default function AdminDashboard() {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="px-5 py-4 border-t border-neutral-800 flex items-center justify-between gap-4">
-                        <p className="text-neutral-500 text-xs">
-                            Menampilkan <span className="text-white font-medium">{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}</span> dari <span className="text-white font-medium">{filtered.length}</span> komik
+                    <div className="px-4 py-4 border-t border-neutral-800 flex items-center justify-between gap-3">
+                        <p className="text-neutral-500 text-xs hidden sm:block">
+                            Menampilkan <span className="text-white font-medium">{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}</span> dari <span className="text-white font-medium">{filtered.length}</span>
                         </p>
+                        <p className="text-neutral-500 text-xs sm:hidden">Hal. {page}/{totalPages}</p>
                         <div className="flex items-center gap-1.5">
                             <button onClick={() => setPage(1)} disabled={page === 1} className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
@@ -713,9 +842,9 @@ export default function AdminDashboard() {
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                             </button>
 
-                            {/* Page numbers */}
+                            {/* Page numbers — truncated on mobile */}
                             {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+                                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
                                 .reduce<(number | "...")[]>((acc, n, i, arr) => {
                                     if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push("...");
                                     acc.push(n);
