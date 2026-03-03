@@ -1,0 +1,76 @@
+name: 🔄 Scrape Manga
+
+on:
+  # Manual trigger from GitHub UI or dashboard button
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Scrape mode"
+        required: true
+        default: "not_synced"
+        type: choice
+        options:
+          - not_synced
+          - all
+      max_per_run:
+        description: "Max comics per run"
+        required: true
+        default: "30"
+        type: string
+      delay_ms:
+        description: "Delay between comics (ms)"
+        required: true
+        default: "3000"
+        type: string
+      scrape_images:
+        description: "Scrape chapter images"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+  # Automatic daily schedule (02:00 WIB = 19:00 UTC)
+  schedule:
+    - cron: "0 19 * * *"
+
+jobs:
+  scrape:
+    name: Run Scraper
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔄 Run scraper
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.NEXT_SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_BUCKET_NAME: ${{ secrets.NEXT_BUCKET_NAME }}
+          # Use workflow_dispatch inputs if provided, else use defaults for scheduled runs
+          SCRAPE_MODE: ${{ github.event.inputs.mode || 'not_synced' }}
+          SCRAPE_MAX: ${{ github.event.inputs.max_per_run || '30' }}
+          SCRAPE_DELAY: ${{ github.event.inputs.delay_ms || '3000' }}
+          SCRAPE_IMAGES: ${{ github.event.inputs.scrape_images || 'false' }}
+        run: npx tsx Scrape/scrape-runner.ts
+
+      - name: ✅ Done
+        if: success()
+        run: echo "✅ Scraping completed successfully!"
+
+      - name: ❌ Failed
+        if: failure()
+        run: echo "❌ Scraping failed. Check logs above for details."

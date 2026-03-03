@@ -7,7 +7,7 @@ export const maxDuration: number = 300;
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 const BUCKET = "manga-data";
 const COMICS_LIST_FILE = "komikindo_scrape_results.json";

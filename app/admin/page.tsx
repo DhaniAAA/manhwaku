@@ -537,6 +537,171 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     );
 }
 
+// ─── GitHub Actions Panel ─────────────────────────────────
+interface GHRun {
+    id: number;
+    status: "queued" | "in_progress" | "completed";
+    conclusion: "success" | "failure" | "cancelled" | null;
+    created_at: string;
+    html_url: string;
+    name: string;
+}
+
+function GitHubActionsPanel() {
+    const [mode, setMode] = useState<"not_synced" | "all">("not_synced");
+    const [maxPerRun, setMaxPerRun] = useState("30");
+    const [delayMs, setDelayMs] = useState("3000");
+    const [scrapeImages, setScrapeImages] = useState(false);
+    const [triggering, setTriggering] = useState(false);
+    const [triggerMsg, setTriggerMsg] = useState<{ ok: boolean; text: string } | null>(null);
+    const [runs, setRuns] = useState<GHRun[]>([]);
+    const [runsLoading, setRunsLoading] = useState(false);
+
+    const fetchRuns = async () => {
+        setRunsLoading(true);
+        try {
+            const res = await fetch("/api/admin/trigger-github", { cache: "no-store" });
+            const d = await res.json();
+            setRuns(d.runs ?? []);
+        } catch { }
+        finally { setRunsLoading(false); }
+    };
+
+    useEffect(() => { fetchRuns(); }, []);
+
+    const handleTrigger = async () => {
+        setTriggering(true);
+        setTriggerMsg(null);
+        try {
+            const res = await fetch("/api/admin/trigger-github", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mode, max_per_run: maxPerRun, delay_ms: delayMs, scrape_images: String(scrapeImages) }),
+            });
+            const d = await res.json();
+            if (d.success) {
+                setTriggerMsg({ ok: true, text: "✅ Workflow triggered! Cek tab Actions di GitHub." });
+                setTimeout(fetchRuns, 5000);
+            } else {
+                setTriggerMsg({ ok: false, text: `❌ ${d.error}` });
+            }
+        } catch (e: any) {
+            setTriggerMsg({ ok: false, text: `❌ ${e.message}` });
+        } finally {
+            setTriggering(false);
+        }
+    };
+
+    const statusBadge = (run: GHRun) => {
+        if (run.status === "in_progress") return <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400 border border-blue-700/30 font-medium"><span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />Running</span>;
+        if (run.status === "queued") return <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400 border border-yellow-700/30 font-medium"><span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />Queued</span>;
+        if (run.conclusion === "success") return <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-700/30 font-medium">✓ Success</span>;
+        if (run.conclusion === "failure") return <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 border border-red-700/30 font-medium">✗ Failed</span>;
+        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-500 font-medium">{run.conclusion ?? run.status}</span>;
+    };
+
+    const timeAgoShort = (dateStr: string) => {
+        const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+        if (diff < 60) return `${diff}s ago`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return `${Math.floor(diff / 86400)}d ago`;
+    };
+
+    return (
+        <div className="bg-neutral-900 rounded-2xl border border-neutral-800 overflow-hidden mb-6">
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-neutral-800 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-neutral-300" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-white">GitHub Actions</p>
+                        <p className="text-neutral-500 text-[10px]">Scrape otomatis via GitHub — bypass IP lokal</p>
+                    </div>
+                </div>
+                <button onClick={fetchRuns} disabled={runsLoading} className="text-xs text-neutral-500 hover:text-white flex items-center gap-1 transition-colors cursor-pointer">
+                    <svg className={`w-3.5 h-3.5 ${runsLoading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    Refresh
+                </button>
+            </div>
+
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Trigger form */}
+                <div className="space-y-3">
+                    <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Trigger Manual</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label className="text-[10px] text-neutral-500 block mb-1">Mode</label>
+                            <select value={mode} onChange={e => setMode(e.target.value as any)} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-green-500 cursor-pointer">
+                                <option value="not_synced">⚠️ Belum Sync</option>
+                                <option value="all">🔄 Semua</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-neutral-500 block mb-1">Maks. Komik</label>
+                            <input type="number" min={1} max={200} value={maxPerRun} onChange={e => setMaxPerRun(e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-green-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-neutral-500 block mb-1">Delay (ms)</label>
+                            <input type="number" min={500} max={10000} step={500} value={delayMs} onChange={e => setDelayMs(e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-green-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-neutral-500 block mb-1">Gambar Chapter</label>
+                            <button onClick={() => setScrapeImages(p => !p)} className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${scrapeImages ? "bg-green-900/20 border-green-700/30 text-green-400" : "bg-neutral-800 border-neutral-700 text-neutral-500"}`}>
+                                <span>{scrapeImages ? "Ya" : "Tidak"}</span>
+                                <div className={`w-7 h-4 rounded-full relative transition-all ${scrapeImages ? "bg-green-500" : "bg-neutral-600"}`}>
+                                    <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${scrapeImages ? "left-3.5" : "left-0.5"}`} />
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    {triggerMsg && (
+                        <p className={`text-xs rounded-lg p-2 ${triggerMsg.ok ? "bg-emerald-900/20 text-emerald-400" : "bg-red-900/20 text-red-400"}`}>{triggerMsg.text}</p>
+                    )}
+                    <button
+                        onClick={handleTrigger}
+                        disabled={triggering}
+                        className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${triggering ? "bg-neutral-800 text-neutral-500 cursor-not-allowed" : "bg-green-600 hover:bg-green-500 text-white"
+                            }`}
+                    >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" /></svg>
+                        {triggering ? "Memicu workflow..." : "Jalankan via GitHub Actions"}
+                    </button>
+                    <p className="text-[10px] text-neutral-600">⏰ Juga berjalan otomatis setiap hari jam 02:00 WIB</p>
+                </div>
+
+                {/* Recent runs */}
+                <div className="space-y-3">
+                    <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Run Terbaru</p>
+                    {runsLoading ? (
+                        <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-neutral-800 rounded-lg animate-pulse" />)}</div>
+                    ) : runs.length === 0 ? (
+                        <div className="py-6 text-center">
+                            <p className="text-neutral-600 text-xs">Belum ada run. Pastikan GITHUB_PAT & GITHUB_REPO sudah diset di .env.local</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {runs.map(run => (
+                                <a key={run.id} href={run.html_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2.5 rounded-lg bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 transition-colors group">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        {statusBadge(run)}
+                                        <span className="text-xs text-neutral-400 truncate">{timeAgoShort(run.created_at)}</span>
+                                    </div>
+                                    <svg className="w-3.5 h-3.5 text-neutral-600 group-hover:text-neutral-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                </a>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────
 export default function AdminDashboard() {
     const [data, setData] = useState<ListResponse | null>(null);
@@ -649,6 +814,9 @@ export default function AdminDashboard() {
                     ))}
                 </div>
             )}
+
+            {/* GitHub Actions Panel */}
+            <GitHubActionsPanel />
 
             {/* Progress Bar */}
             {data && (
