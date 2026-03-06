@@ -44,12 +44,17 @@ function convertRelativeToIso(relativeStr: string) {
   return date.toISOString();
 }
 
+/** Normalize slug matching Supabase folder naming:
+ *  apostrophe (') → space → hyphen  e.g. "Margrave's" → "margrave-s"
+ */
 function sanitizeSlug(text: string) {
   return text
     .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/'/g, " ")           // apostrophe → space
+    .replace(/[^\w\s-]/g, " ")    // other special chars → space
+    .replace(/[\s_]+/g, "-")      // spaces → hyphen
+    .replace(/-+/g, "-")          // collapse multiple hyphens
+    .replace(/^-+|-+$/g, "");     // trim
 }
 
 async function fetchHtml(url: string) {
@@ -97,9 +102,11 @@ export async function POST(req: NextRequest) {
   (async () => {
     try {
       const body = await req.json();
-      const { url } = body;
+      const { url, scrapeMode = "all" } = body;
+      // scrapeMode: "metadata_only" | "chapters_only" | "all"
 
       if (!url) throw new Error("URL is required");
+      await pushMessage(`⚙️ Mode: ${{ metadata_only: "Metadata Saja", chapters_only: "Chapters Saja (tanpa gambar)", all: "Semua (metadata + chapter + gambar)" }[scrapeMode as string] ?? scrapeMode}`);
 
       await pushMessage(`Memulai scraping dari URL: ${url}`);
 
@@ -109,7 +116,11 @@ export async function POST(req: NextRequest) {
       // Parse metadata
       const titleRaw = $('h1.entry-title').text().trim();
       const title = titleRaw.replace(/^Komik\s*/i, '').trim();
-      const slug = sanitizeSlug(title);
+      // ⚠️ PENTING: Ambil slug dari URL, BUKAN dari sanitizeSlug(title)
+      // supaya folder Supabase selalu konsisten dengan slug di metadata/URL komikindo.
+      // Contoh: URL ".../komik/a-spys-survival-in-the-demonic-cult/" → slug "a-spys-survival-in-the-demonic-cult"
+      const urlSlug = url.replace(/\/$/, "").split("/").pop() ?? "";
+      const slug = urlSlug || sanitizeSlug(title);
 
       await pushMessage(`Ditemukan komik: ${title} (Slug: ${slug})`);
 
@@ -120,12 +131,16 @@ export async function POST(req: NextRequest) {
         genres.push($(el).text().trim());
       });
 
-      let synopsis = $('.entry-content-sinopsis, .entry-content .sinopsis').text().trim();
+      // Selector utama: div[itemprop="description"] sesuai struktur HTML komikindo
+      let synopsis = $('[itemprop="description"]').text().trim()
+        || $('.entry-content-single').text().trim();
       if (!synopsis) {
-         const p = $('.entry-content p').first().text().trim();
-         if (p && !p.includes("yang dibuat oleh komikus")) synopsis = p;
+        synopsis = $('.entry-content p').first().text().trim();
       }
-      synopsis = synopsis.replace(/^(Manhwa|Manhua|Manga)\s+[^.]+yang dibuat oleh[^.]+bercerita tentang\s*/i, '').trim();
+      // Collapse whitespace/newlines lalu hapus boilerplate komikindo
+      synopsis = synopsis.replace(/\s+/g, ' ').trim();
+      synopsis = synopsis.replace(/^(Manhwa|Manhua|Manga)\s+.+?yang dibuat oleh komikus?\s*(?:bernama)?\s*.+?(?:bercerita tentang|ini bercerita tentang)\s*/i, '').trim();
+      if (synopsis.length < 10) synopsis = '';
 
       const metadata: Record<string, string> = {};
       $('.spe span').each((_, el) => {
@@ -138,17 +153,17 @@ export async function POST(req: NextRequest) {
 
       const chaptersRaw: any[] = [];
       $('#chapter_list ul li').each((_, el) => {
-         const a = $(el).find('.lchx a');
-         if (a.length > 0) {
-           const chTitle = a.text().trim();
-           const chLink = a.attr('href') || '';
-           const waktuRaw = $(el).find('.dt').text().trim() || 'N/A';
-           chaptersRaw.push({
-             chapter: chTitle,
-             link: chLink,
-             waktu_rilis: convertRelativeToIso(waktuRaw)
-           });
-         }
+        const a = $(el).find('.lchx a');
+        if (a.length > 0) {
+          const chTitle = a.text().trim();
+          const chLink = a.attr('href') || '';
+          const waktuRaw = $(el).find('.dt').text().trim() || 'N/A';
+          chaptersRaw.push({
+            chapter: chTitle,
+            link: chLink,
+            waktu_rilis: convertRelativeToIso(waktuRaw)
+          });
+        }
       });
 
       // Reverse so Chapter 1 is first
@@ -157,119 +172,159 @@ export async function POST(req: NextRequest) {
 
       await pushMessage(`Status: ${metadata['Status']} | Total Chapters Web: ${total_chapters}`);
 
-      // Ambil existing chapters
-      const existingData = await getFromSupabase(`${slug}/chapters.json`);
-      const existingChaptersSet = new Set<string>();
-      if (existingData && existingData.chapters) {
-        existingData.chapters.forEach((c: any) => existingChaptersSet.add(c.slug));
-        await pushMessage(`Ditemukan ${existingChaptersSet.size} chapter lama di Supabase.`);
+      // ─── Helper: build & upload global all-manhwa-metadata.json ───
+      const updateGlobalMetadata = async (finalChapterCount: number, latestChapters: any[]) => {
+        await pushMessage(`⚙️ Mengupdate all-manhwa-metadata.json global...`);
+        const allManga = await getFromSupabase(`all-manhwa-metadata.json`) || [];
+        const newEntry: any = {
+          slug, title, cover_url,
+          pengarang: metadata['Author'] || 'Unknown',
+          ilustrator: metadata['Ilustrator'] || 'Unknown',
+          genres,
+          genre: genres.join(", "),
+          type: metadata['Type'] || 'Manhwa',
+          status: metadata['Status'] || 'Berjalan',
+          rating: "0",
+          total_chapters: finalChapterCount,
+          latestChapters,
+          lastUpdateTime: new Date().toISOString()
+        };
+        const existingIndex = allManga.findIndex((m: any) => m.slug === slug);
+        if (existingIndex >= 0) {
+          newEntry.rating = allManga[existingIndex].rating || "0";
+          allManga[existingIndex] = newEntry;
+        } else {
+          allManga.push(newEntry);
+        }
+        await uploadToSupabase(`all-manhwa-metadata.json`, allManga);
+        await pushMessage(`✓ Sukses Update all-manhwa-metadata.json global!`);
+      };
+
+      // ─── MODE: metadata_only ──────────────────────────────────────
+      if (scrapeMode === "metadata_only") {
+        const resultMetadata = {
+          slug, title, url, cover_url, genres, synopsis, metadata, total_chapters
+        };
+        await uploadToSupabase(`${slug}/metadata.json`, resultMetadata);
+        await pushMessage(`✅ Uploaded metadata.json ke folder ${slug}/`);
+
+        // Also update global list (use existing chapter count if already in Supabase)
+        const existingChaptersData = await getFromSupabase(`${slug}/chapters.json`);
+        const existingCount = existingChaptersData?.total_chapters ?? 0;
+        const existingLatest = existingChaptersData?.chapters
+          ? (existingChaptersData.chapters as any[]).slice(-2).reverse().map((c: any) => ({ title: c.title, waktu_rilis: c.waktu_rilis, slug: c.slug }))
+          : [];
+        await updateGlobalMetadata(existingCount || total_chapters, existingLatest);
+
+        await pushSuccess({ slug, scraped: 0 });
+        return;
       }
 
-      const scrapedChaptersData: any[] = existingData?.chapters ? [...existingData.chapters] : [];
-      let newScrapedCount = 0;
-
-      // Scrape images per chapter
-      for (let i = 0; i < chapters.length; i++) {
-        const ch = chapters[i];
-        const chSlug = sanitizeSlug(ch.chapter);
-
-        if (existingChaptersSet.has(chSlug)) {
-           // Skip if already in DB
-           continue;
+      // ─── MODE: chapters_only  (list, no images) ───────────────────
+      if (scrapeMode === "chapters_only") {
+        const existingData = await getFromSupabase(`${slug}/chapters.json`);
+        const existingChaptersSet = new Set<string>();
+        const scrapedChaptersData: any[] = existingData?.chapters ? [...existingData.chapters] : [];
+        if (existingData?.chapters) {
+          existingData.chapters.forEach((c: any) => existingChaptersSet.add(c.slug));
+          await pushMessage(`Ditemukan ${existingChaptersSet.size} chapter lama di Supabase.`);
         }
 
-        await pushMessage(`Scraping Chapter: ${ch.chapter}... [${i+1}/${chapters.length}]`);
-        try {
-           const chHtml = await fetchHtml(ch.link);
-           const $ch = cheerio.load(chHtml);
-           const images: string[] = [];
-
-           const selectors = ['#chimg-auh img', '.chapter-image img', '#Baca_Komik img', '.img-landmine img', '.main-reading-area img'];
-           for (const selector of selectors) {
-               $ch(selector).each((_, img) => {
-                   const src = $ch(img).attr('src');
-                   if (src && src.startsWith('http')) images.push(src);
-               });
-               if (images.length > 0) break;
-           }
-
-           if (images.length > 0) {
-              await pushMessage(`✓ Sukses mendapat ${images.length} gambar untuk ${ch.chapter}`);
-              scrapedChaptersData.push({
-                  slug: chSlug,
-                  title: ch.chapter,
-                  url: ch.link,
-                  waktu_rilis: ch.waktu_rilis,
-                  total_images: images.length,
-                  images: images
-              });
-              newScrapedCount++;
-           } else {
-              await pushMessage(`⚠️ Gagal mendapat gambar untuk ${ch.chapter} (Mungkin Cloudflare / Timeout)`);
-           }
-
-        } catch(e: any) {
-           await pushMessage(`✗ Error Scrape Chapter ${ch.chapter}: ${e.message}`);
+        let newCount = 0;
+        for (const ch of chapters) {
+          const chSlug = sanitizeSlug(ch.chapter);
+          if (existingChaptersSet.has(chSlug)) continue;
+          scrapedChaptersData.push({
+            slug: chSlug,
+            title: ch.chapter,
+            url: ch.link,
+            waktu_rilis: ch.waktu_rilis,
+            total_images: 0,
+            images: []
+          });
+          newCount++;
         }
 
-        // Kasih jeda debounce
-        await new Promise(r => setTimeout(r, 1000));
-      }
-
-      if (newScrapedCount > 0 || !existingData) {
-          // Upload metadata
-          const resultMetadata = {
-             slug, title, url, cover_url, genres, synopsis, metadata, total_chapters: scrapedChaptersData.length
-          };
-          await uploadToSupabase(`${slug}/metadata.json`, resultMetadata);
-          await pushMessage(`✓ Uploaded metadata.json ke folder ${slug}/`);
-
-          // Upload chapters
-          const resultChapters = {
-             slug, title, total_chapters: scrapedChaptersData.length, chapters: scrapedChaptersData
-          };
+        if (newCount > 0 || !existingData) {
+          const resultChapters = { slug, title, total_chapters: scrapedChaptersData.length, chapters: scrapedChaptersData };
           await uploadToSupabase(`${slug}/chapters.json`, resultChapters);
-          await pushMessage(`✓ Uploaded chapters.json ke folder ${slug}/`);
+          await pushMessage(`✅ Uploaded chapters.json (${newCount} chapter baru) ke folder ${slug}/`);
 
-          // Update Global all-manhwa-metadata.json
-          await pushMessage(`⚙️ Mengupdate all-manhwa-metadata.json global...`);
-          const allManga = await getFromSupabase(`all-manhwa-metadata.json`) || [];
+          // Also update metadata.json
+          const resultMetadata = { slug, title, url, cover_url, genres, synopsis, metadata, total_chapters: scrapedChaptersData.length };
+          await uploadToSupabase(`${slug}/metadata.json`, resultMetadata);
+          await pushMessage(`✅ Uploaded metadata.json ke folder ${slug}/`);
 
-          const newEntry = {
-              slug, title, cover_url,
-              pengarang: metadata['Author'] || 'Unknown',
-              ilustrator: metadata['Ilustrator'] || 'Unknown',
-              genres,
-              genre: genres.join(", "),
-              type: metadata['Type'] || 'Manhwa',
-              status: metadata['Status'] || 'Berjalan',
-              rating: "0",
-              total_chapters: scrapedChaptersData.length,
-              latestChapters: scrapedChaptersData.slice(-2).reverse().map(c => ({
-                  title: c.title,
-                  waktu_rilis: c.waktu_rilis,
-                  slug: c.slug
-              })),
-              lastUpdateTime: new Date().toISOString()
-          };
+          const latestChapters = scrapedChaptersData.slice(-2).reverse().map((c: any) => ({ title: c.title, waktu_rilis: c.waktu_rilis, slug: c.slug }));
+          await updateGlobalMetadata(scrapedChaptersData.length, latestChapters);
+        } else {
+          await pushMessage(`ℹ️ Tidak ada chapter baru. Selesai.`);
+        }
 
-          const existingIndex = allManga.findIndex((m: any) => m.slug === slug);
-          if (existingIndex >= 0) {
-             // Retain rating and update specific
-             const oldEntry = allManga[existingIndex];
-             newEntry.rating = oldEntry.rating || "0";
-             allManga[existingIndex] = newEntry;
-          } else {
-             allManga.push(newEntry);
-          }
-
-          await uploadToSupabase(`all-manhwa-metadata.json`, allManga);
-          await pushMessage(`✓ Sukses Update all-manhwa-metadata.json global!`);
-      } else {
-          await pushMessage(`ℹ️ Tidak ada chapter baru direkam. Selesai.`);
+        await pushSuccess({ slug, scraped: newCount });
+        return;
       }
 
-      await pushSuccess({ slug, scraped: newScrapedCount });
+      // ─── MODE: all (default) — metadata + chapters + images ───────
+      {
+        const existingData = await getFromSupabase(`${slug}/chapters.json`);
+        const existingChaptersSet = new Set<string>();
+        if (existingData && existingData.chapters) {
+          existingData.chapters.forEach((c: any) => existingChaptersSet.add(c.slug));
+          await pushMessage(`Ditemukan ${existingChaptersSet.size} chapter lama di Supabase.`);
+        }
+
+        const scrapedChaptersData: any[] = existingData?.chapters ? [...existingData.chapters] : [];
+        let newScrapedCount = 0;
+
+        for (let i = 0; i < chapters.length; i++) {
+          const ch = chapters[i];
+          const chSlug = sanitizeSlug(ch.chapter);
+          if (existingChaptersSet.has(chSlug)) continue;
+
+          await pushMessage(`Scraping Chapter: ${ch.chapter}... [${i + 1}/${chapters.length}]`);
+          try {
+            const chHtml = await fetchHtml(ch.link);
+            const $ch = cheerio.load(chHtml);
+            const images: string[] = [];
+            const selectors = ['#chimg-auh img', '.chapter-image img', '#Baca_Komik img', '.img-landmine img', '.main-reading-area img'];
+            for (const selector of selectors) {
+              $ch(selector).each((_, img) => {
+                const src = $ch(img).attr('src');
+                if (src && src.startsWith('http')) images.push(src);
+              });
+              if (images.length > 0) break;
+            }
+            if (images.length > 0) {
+              await pushMessage(`✓ Sukses mendapat ${images.length} gambar untuk ${ch.chapter}`);
+              scrapedChaptersData.push({ slug: chSlug, title: ch.chapter, url: ch.link, waktu_rilis: ch.waktu_rilis, total_images: images.length, images });
+              newScrapedCount++;
+            } else {
+              await pushMessage(`⚠️ Gagal mendapat gambar untuk ${ch.chapter} (Mungkin Cloudflare / Timeout)`);
+            }
+          } catch (e: any) {
+            await pushMessage(`✗ Error Scrape Chapter ${ch.chapter}: ${e.message}`);
+          }
+          await new Promise(r => setTimeout(r, 1000));
+        }
+
+        if (newScrapedCount > 0 || !existingData) {
+          const resultMetadata = { slug, title, url, cover_url, genres, synopsis, metadata, total_chapters: scrapedChaptersData.length };
+          await uploadToSupabase(`${slug}/metadata.json`, resultMetadata);
+          await pushMessage(`✅ Uploaded metadata.json ke folder ${slug}/`);
+
+          const resultChapters = { slug, title, total_chapters: scrapedChaptersData.length, chapters: scrapedChaptersData };
+          await uploadToSupabase(`${slug}/chapters.json`, resultChapters);
+          await pushMessage(`✅ Uploaded chapters.json ke folder ${slug}/`);
+
+          const latestChapters = scrapedChaptersData.slice(-2).reverse().map((c: any) => ({ title: c.title, waktu_rilis: c.waktu_rilis, slug: c.slug }));
+          await updateGlobalMetadata(scrapedChaptersData.length, latestChapters);
+        } else {
+          await pushMessage(`ℹ️ Tidak ada chapter baru direkam. Selesai.`);
+        }
+
+        await pushSuccess({ slug, scraped: newScrapedCount });
+      }
     } catch (err: any) {
       console.error(err);
       await pushError(err.message || "Unknown error occurred");

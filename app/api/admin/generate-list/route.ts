@@ -10,7 +10,8 @@ const supabase = createClient(
 );
 
 const BUCKET = "manga-data";
-const COMICS_LIST_FILE = "komikindo_scrape_results.json";
+const META_FILE = "all-manhwa-metadata.json";
+const KOMIKINDO_BASE = "https://komikindo.ch/komik";
 
 const USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -26,16 +27,18 @@ function getHeaders() {
     };
 }
 
+/** Normalize slug matching Supabase folder naming:
+ *  apostrophe (') → space → hyphen  e.g. "Margrave's" → "margrave-s"
+ */
 function normalizeSlug(text: string): string {
     return text
         .toLowerCase()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/[\s_]+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-+|-+$/g, "");
+        .replace(/'/g, " ")           // apostrophe → space
+        .replace(/[^\w\s-]/g, " ")    // other special chars → space
+        .replace(/[\s_]+/g, "-")      // spaces → hyphen
+        .replace(/-+/g, "-")          // collapse multiple hyphens
+        .replace(/^-+|-+$/g, "");     // trim
 }
-
-type ComicEntry = { Title: string; Link: string; Slug: string; Image: string; Type: string };
 
 async function getJsonFromSupabase<T>(filePath: string): Promise<T | null> {
     const { data, error } = await supabase.storage.from(BUCKET).download(filePath);
@@ -51,6 +54,20 @@ async function uploadJsonToSupabase(filePath: string, data: unknown) {
     );
     if (error) throw error;
 }
+
+type MetaEntry = {
+    slug: string;
+    title: string;
+    cover_url: string;
+    type: string;
+    status: string;
+    total_chapters: number;
+    latestChapters: Array<{ title: string; waktu_rilis: string; slug: string }>;
+    lastUpdateTime: string;
+    genres: string[];
+    genre: string;
+    [key: string]: unknown;
+};
 
 export async function POST(req: NextRequest) {
     const encoder = new TextEncoder();
@@ -78,19 +95,19 @@ export async function POST(req: NextRequest) {
             const body = await req.json().catch(() => ({}));
             const { searchUrl } = body as { searchUrl?: string };
 
-            // ── Step 1: Load existing comics list from Supabase ──
-            await push("📂 Membaca komikindo_scrape_results.json dari Supabase...");
-            const existingList: ComicEntry[] = await getJsonFromSupabase<ComicEntry[]>(COMICS_LIST_FILE) ?? [];
-            const existingSlugs = new Set(existingList.map((c) => normalizeSlug(c.Slug || c.Title)));
-            await push(`ℹ️ Daftar komik di Supabase: ${existingList.length} entri.`);
+            // ── Step 1: Load all-manhwa-metadata.json ──
+            await push("📂 Membaca all-manhwa-metadata.json dari Supabase...");
+            const existingMeta: MetaEntry[] = await getJsonFromSupabase<MetaEntry[]>(META_FILE) ?? [];
+            const existingSlugs = new Set(existingMeta.map(m => m.slug));
+            await push(`ℹ️ Total komik di metadata: ${existingMeta.length} entri.`);
 
-            // ── Step 2: Get all bucket folders ──
+            // ── Step 2: Scan Supabase bucket folders for new comics ──
             await push("📂 Mengambil daftar folder dari Supabase bucket...");
-            const existingFolders = new Set<string>();
+            const bucketFolders = new Set<string>();
             let offset = 0;
             const limit = 100;
             while (true) {
-                await push(`   → Fetching bucket listing offset ${offset}...`);
+                await push(`   → Fetching offset ${offset}...`);
                 const { data: items, error: listErr } = await supabase.storage
                     .from(BUCKET)
                     .list("", { limit, offset, sortBy: { column: "name", order: "asc" } });
@@ -98,27 +115,32 @@ export async function POST(req: NextRequest) {
                 if (!items || items.length === 0) break;
                 for (const item of items) {
                     const name: string = item.name ?? "";
-                    if (name && !name.includes(".")) existingFolders.add(name);
+                    if (name && !name.includes(".")) bucketFolders.add(name);
                 }
                 if (items.length < limit) break;
                 offset += limit;
             }
-            await push(`✅ Ditemukan ${existingFolders.size} folder komik di Supabase.`);
+            await push(`✅ Ditemukan ${bucketFolders.size} folder komik di Supabase.`);
 
-            const newEntries: ComicEntry[] = [];
+            const newEntries: MetaEntry[] = [];
 
-            // ── Step 3: Add missing Supabase folders to list ──
-            const missing = [...existingFolders].filter((f) => !existingSlugs.has(normalizeSlug(f)));
-            await push(`🔍 ${missing.length} folder di Supabase belum ada di daftar.`);
-            for (const folder of missing) {
+            // ── Step 3: Add missing bucket folders to metadata ──
+            const missingFolders = [...bucketFolders].filter(f => !existingSlugs.has(f));
+            await push(`🔍 ${missingFolders.length} folder belum ada di metadata.`);
+            for (const folder of missingFolders) {
                 const slug = normalizeSlug(folder);
-                if (!newEntries.find((e) => normalizeSlug(e.Slug) === slug)) {
+                if (!existingSlugs.has(slug)) {
                     newEntries.push({
-                        Title: folder.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-                        Link: `https://komikindo.ch/komik/${folder}/`,
-                        Slug: slug,
-                        Image: "",
-                        Type: "Manhwa",
+                        slug,
+                        title: folder.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+                        cover_url: "",
+                        type: "Manhwa",
+                        status: "Berjalan",
+                        total_chapters: 0,
+                        latestChapters: [],
+                        lastUpdateTime: new Date().toISOString(),
+                        genres: [],
+                        genre: "",
                     });
                     existingSlugs.add(slug);
                 }
@@ -145,7 +167,18 @@ export async function POST(req: NextRequest) {
                         const urlSlug = link.replace(/\/$/, "").split("/").pop() || "";
                         const slug = normalizeSlug(urlSlug || rawTitle);
                         if (!existingSlugs.has(slug)) {
-                            newEntries.push({ Title: rawTitle, Link: link, Slug: slug, Image: img, Type: type });
+                            newEntries.push({
+                                slug,
+                                title: rawTitle,
+                                cover_url: img,
+                                type,
+                                status: "Berjalan",
+                                total_chapters: 0,
+                                latestChapters: [],
+                                lastUpdateTime: new Date().toISOString(),
+                                genres: [],
+                                genre: "",
+                            });
                             existingSlugs.add(slug);
                             scraped++;
                         }
@@ -158,15 +191,15 @@ export async function POST(req: NextRequest) {
 
             if (newEntries.length === 0) {
                 await push("ℹ️ Tidak ada komik baru untuk ditambahkan.");
-                await pushDone({ added: 0, total: existingList.length });
+                await pushDone({ added: 0, total: existingMeta.length });
                 return;
             }
 
-            // ── Step 5: Upload updated list to Supabase ──
-            await push(`📝 Menambahkan ${newEntries.length} komik baru...`);
-            const updated = [...existingList, ...newEntries];
-            await uploadJsonToSupabase(COMICS_LIST_FILE, updated);
-            await push(`✅ komikindo_scrape_results.json diperbarui di Supabase! Total: ${updated.length} komik.`);
+            // ── Step 5: Upload updated metadata to Supabase ──
+            await push(`📝 Menambahkan ${newEntries.length} komik baru ke metadata...`);
+            const updated = [...existingMeta, ...newEntries];
+            await uploadJsonToSupabase(META_FILE, updated);
+            await push(`✅ all-manhwa-metadata.json diperbarui! Total: ${updated.length} komik.`);
             await pushDone({ added: newEntries.length, total: updated.length });
 
         } catch (err: any) {

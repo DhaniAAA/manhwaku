@@ -10,7 +10,8 @@ const supabase = createClient(
     process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 const BUCKET = "manga-data";
-const COMICS_LIST_FILE = "komikindo_scrape_results.json";
+const META_FILE = "all-manhwa-metadata.json";
+const KOMIKINDO_BASE = "https://komikindo.ch/komik";
 
 const USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -27,7 +28,13 @@ const getHeaders = () => ({
 });
 
 function sanitizeSlug(text: string) {
-    return text.toLowerCase().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+    return text
+        .toLowerCase()
+        .replace(/'/g, " ")
+        .replace(/[^\w\s-]/g, " ")
+        .replace(/[\s_]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-+|-+$/g, "");
 }
 
 function convertRelativeToIso(relativeStr: string) {
@@ -67,21 +74,38 @@ async function uploadJsonToSupabase(filePath: string, data: unknown) {
     if (error) throw error;
 }
 
-type ComicEntry = { Title: string; Link: string; Slug: string; Image: string; Type: string };
+type MetaEntry = {
+    slug: string;
+    title: string;
+    cover_url: string;
+    type: string;
+    status?: string;
+    total_chapters: number;
+    latestChapters: Array<{ title: string; waktu_rilis: string; slug: string }>;
+    lastUpdateTime: string;
+    genres?: string[];
+    genre?: string;
+    [key: string]: unknown;
+};
 
 export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const {
         mode = "not_synced",
-        delayMs = 2000,
+        delayMs = 1500,
         maxPerRun = 50,
         scrapeImages = false,
+        concurrency = 3,
     } = body as {
         mode?: "all" | "not_synced";
         delayMs?: number;
         maxPerRun?: number;
         scrapeImages?: boolean;
+        concurrency?: number;
     };
+
+    // Clamp concurrency ke range aman (1–6)
+    const workers = Math.max(1, Math.min(concurrency, 6));
 
     const encoder = new TextEncoder();
     const stream = new TransformStream();
@@ -108,58 +132,60 @@ export async function POST(req: NextRequest) {
 
     (async () => {
         try {
-            // Load comics list from Supabase
-            await push("📖 Membaca komikindo_scrape_results.json dari Supabase...");
-            const comicsList: ComicEntry[] = await getJsonFromSupabase<ComicEntry[]>(COMICS_LIST_FILE) ?? [];
-            if (comicsList.length === 0) throw new Error(`${COMICS_LIST_FILE} tidak ditemukan di Supabase bucket '${BUCKET}'`);
+            await push("📖 Membaca all-manhwa-metadata.json dari Supabase...");
+            const allMeta: MetaEntry[] = await getJsonFromSupabase<MetaEntry[]>(META_FILE) ?? [];
+            if (allMeta.length === 0) throw new Error(`${META_FILE} tidak ditemukan di Supabase bucket '${BUCKET}'`);
 
-            // Load all-manhwa-metadata
-            await push("📖 Membaca metadata Supabase...");
-            const allMeta: any[] = await getJsonFromSupabase("all-manhwa-metadata.json") ?? [];
-            const syncedSlugs = new Set(allMeta.map((m: any) => m.slug?.toLowerCase()));
-
-            // Normalize + deduplicate
+            // Deduplicate by slug
             const seenSlugs = new Set<string>();
-            const allComics = comicsList
-                .map(c => ({ ...c, slug: sanitizeSlug(c.Slug || c.Title) }))
-                .filter(c => { if (seenSlugs.has(c.slug)) return false; seenSlugs.add(c.slug); return true; });
+            const allComics = allMeta
+                .filter(m => { if (!m.slug || seenSlugs.has(m.slug)) return false; seenSlugs.add(m.slug); return true; })
+                .map(m => ({
+                    slug: m.slug,
+                    title: m.title,
+                    link: `${KOMIKINDO_BASE}/${m.slug}/`,
+                    type: m.type ?? "Manhwa",
+                    totalChapters: m.total_chapters ?? 0,
+                }));
 
-            // Filter by mode
             const toScrape = mode === "not_synced"
-                ? allComics.filter(c => !syncedSlugs.has(c.slug))
+                ? allComics.filter(c => c.totalChapters === 0)
                 : allComics;
 
             const limited = toScrape.slice(0, maxPerRun);
-            await push(`✅ Mode: ${mode === "not_synced" ? "Belum Sync" : "Semua"} | ${limited.length} komik akan di-scrape (dari ${toScrape.length} total)`);
-            await push(`⚙️ Delay: ${delayMs}ms | Max: ${maxPerRun} | Gambar: ${scrapeImages ? "Ya" : "Tidak"}`);
+            await push(`✅ Mode: ${mode === "not_synced" ? "Belum Ada Chapter" : "Semua"} | ${limited.length} komik akan di-scrape (dari ${toScrape.length} total)`);
+            await push(`⚙️ Concurrency: ${workers} | Delay antar batch: ${delayMs}ms | Max: ${maxPerRun} | Gambar: ${scrapeImages ? "Ya" : "Tidak"}`);
 
             let successCount = 0;
             let skipCount = 0;
             let errorCount = 0;
             const currentAllMeta: any[] = [...allMeta];
 
-            for (let i = 0; i < limited.length; i++) {
-                const comic = limited[i];
-                await push(`\n🔄 [${i + 1}/${limited.length}] Scraping: ${comic.Title}`);
-                await pushProgress(i + 1, limited.length, comic.slug, "running");
+            // ─── Per-comic scrape function ─────────────────────────────────────
+            const scrapeOne = async (comic: typeof limited[0], globalIdx: number) => {
+                await push(`\n🔄 [${globalIdx + 1}/${limited.length}] Scraping: ${comic.title}`);
+                await pushProgress(globalIdx + 1, limited.length, comic.slug, "running");
 
                 try {
-                    const html = await fetchHtml(comic.Link);
+                    // 1. Fetch halaman komik dari web
+                    const html = await fetchHtml(comic.link);
                     const $ = cheerio.load(html);
 
                     const titleRaw = $("h1.entry-title").text().trim();
-                    const title = titleRaw.replace(/^Komik\s*/i, "").trim();
-                    const slug = sanitizeSlug(title);
+                    const title = titleRaw.replace(/^Komik\s*/i, "").trim() || comic.title;
+                    const slug = comic.slug; // Selalu pakai slug dari metadata, bukan dari title
                     const cover_url = $(".thumb img").attr("src") || $(".thumb img").attr("data-src") || "";
 
                     const genres: string[] = [];
                     $(".genre-info a").each((_, el) => { genres.push($(el).text().trim()); });
 
-                    let synopsis = $(".entry-content-sinopsis, .entry-content .sinopsis").text().trim();
-                    if (!synopsis) {
-                        const p = $(".entry-content p").first().text().trim();
-                        if (p && !p.includes("yang dibuat oleh komikus")) synopsis = p;
-                    }
+                    // Synopsis — sesuai struktur HTML komikindo
+                    let synopsis = $('[itemprop="description"]').text().trim()
+                        || $(".entry-content-single").text().trim();
+                    if (!synopsis) synopsis = $(".entry-content p").first().text().trim();
+                    synopsis = synopsis.replace(/\s+/g, " ").trim();
+                    synopsis = synopsis.replace(/^(Manhwa|Manhua|Manga)\s+.+?yang dibuat oleh komikus?\s*(?:bernama)?\s*.+?(?:bercerita tentang|ini bercerita tentang)\s*/i, "").trim();
+                    if (synopsis.length < 10) synopsis = "";
 
                     const metadata: Record<string, string> = {};
                     $(".spe span").each((_, el) => {
@@ -170,6 +196,7 @@ export async function POST(req: NextRequest) {
                         if (text.includes("Ilustrator:")) metadata["Ilustrator"] = text.replace("Ilustrator:", "").trim();
                     });
 
+                    // Parse chapter list dari HTML (sebelum request ke Supabase)
                     const chaptersRaw: any[] = [];
                     $("#chapter_list ul li").each((_, el) => {
                         const a = $(el).find(".lchx a");
@@ -183,7 +210,18 @@ export async function POST(req: NextRequest) {
                     });
                     const chapters = chaptersRaw.reverse();
 
-                    const existingData = await getJsonFromSupabase<any>(`${slug}/chapters.json`);
+                    // 2. Fetch metadata.json & chapters.json dari Supabase secara PARALEL
+                    const [existingMeta, existingData] = await Promise.all([
+                        getJsonFromSupabase<any>(`${slug}/metadata.json`),
+                        getJsonFromSupabase<any>(`${slug}/chapters.json`),
+                    ]);
+
+                    // Fallback synopsis dari data lama jika scrape kosong
+                    if (!synopsis && existingMeta?.synopsis) {
+                        synopsis = existingMeta.synopsis;
+                        await push(`   ℹ️ Synopsis kosong dari web, pakai synopsis lama.`);
+                    }
+
                     const existingChapterSlugs = new Set<string>(
                         existingData?.chapters?.map((c: any) => c.slug) ?? []
                     );
@@ -194,7 +232,7 @@ export async function POST(req: NextRequest) {
                     if (newChapters.length === 0 && existingData) {
                         await push(`   ℹ️ Tidak ada chapter baru.`);
                         skipCount++;
-                        await pushProgress(i + 1, limited.length, slug, "skip");
+                        await pushProgress(globalIdx + 1, limited.length, slug, "skip");
                     } else {
                         let chapterDataList: any[] = existingData?.chapters ? [...existingData.chapters] : [];
 
@@ -223,25 +261,31 @@ export async function POST(req: NextRequest) {
                             }
                         }
 
-                        await uploadJsonToSupabase(`${slug}/metadata.json`, { slug, title, url: comic.Link, cover_url, genres, synopsis, metadata, total_chapters: chapterDataList.length });
-                        await uploadJsonToSupabase(`${slug}/chapters.json`, { slug, title, total_chapters: chapterDataList.length, chapters: chapterDataList });
+                        // 3. Upload metadata.json & chapters.json ke Supabase secara PARALEL
+                        await Promise.all([
+                            uploadJsonToSupabase(`${slug}/metadata.json`, { slug, title, url: comic.link, cover_url, genres, synopsis, metadata, total_chapters: chapterDataList.length }),
+                            uploadJsonToSupabase(`${slug}/chapters.json`, { slug, title, total_chapters: chapterDataList.length, chapters: chapterDataList }),
+                        ]);
 
-                        const newEntry = {
+                        // Update in-memory global meta (JS single-thread → operasi sync ini aman dari race condition)
+                        const newEntry: any = {
                             slug, title, cover_url,
                             pengarang: metadata["Author"] || "Unknown",
                             ilustrator: metadata["Ilustrator"] || "Unknown",
                             genres, genre: genres.join(", "),
-                            type: metadata["Type"] || comic.Type || "Manhwa",
+                            type: metadata["Type"] || comic.type || "Manhwa",
                             status: metadata["Status"] || "Berjalan",
                             rating: "0",
                             total_chapters: chapterDataList.length,
                             latestChapters: chapterDataList.slice(-2).reverse().map((c: any) => ({ title: c.title, waktu_rilis: c.waktu_rilis, slug: c.slug })),
                             lastUpdateTime: new Date().toISOString(),
                         };
-
                         const existingIdx = currentAllMeta.findIndex((m: any) => m.slug === slug);
                         if (existingIdx >= 0) {
-                            newEntry.rating = currentAllMeta[existingIdx].rating || "0";
+                            const old = currentAllMeta[existingIdx];
+                            newEntry.rating = old.rating || "0";
+                            if (newEntry.pengarang === "Unknown" && old.pengarang && old.pengarang !== "Unknown") newEntry.pengarang = old.pengarang;
+                            if (newEntry.ilustrator === "Unknown" && old.ilustrator && old.ilustrator !== "Unknown") newEntry.ilustrator = old.ilustrator;
                             currentAllMeta[existingIdx] = newEntry;
                         } else {
                             currentAllMeta.push(newEntry);
@@ -249,21 +293,36 @@ export async function POST(req: NextRequest) {
 
                         await push(`   ✅ Selesai: ${title} (${newChapters.length} chapter baru)`);
                         successCount++;
-                        await pushProgress(i + 1, limited.length, slug, "done");
+                        await pushProgress(globalIdx + 1, limited.length, slug, "done");
                     }
                 } catch (e: any) {
-                    await push(`   ❌ Error: ${comic.Title} — ${e.message}`);
+                    await push(`   ❌ Error: ${comic.title} — ${e.message}`);
                     errorCount++;
-                    await pushProgress(i + 1, limited.length, comic.slug, "error");
+                    await pushProgress(globalIdx + 1, limited.length, comic.slug, "error");
                 }
+            };
 
-                if (i < limited.length - 1) {
+            // ─── Batch-concurrent execution ────────────────────────────────────
+            // Proses `workers` komik sekaligus, delay hanya antar batch
+            const totalBatches = Math.ceil(limited.length / workers);
+            for (let batchStart = 0; batchStart < limited.length; batchStart += workers) {
+                const batch = limited.slice(batchStart, batchStart + workers);
+                const batchNum = Math.floor(batchStart / workers) + 1;
+                await push(`\n📦 Batch ${batchNum}/${totalBatches} — ${batch.length} komik paralel`);
+
+                await Promise.all(
+                    batch.map((comic, idx) => scrapeOne(comic, batchStart + idx))
+                );
+
+                // Delay antar batch (bukan antar komik individual)
+                if (batchStart + workers < limited.length) {
+                    await push(`⏳ Menunggu ${delayMs}ms sebelum batch berikutnya...`);
                     await new Promise(r => setTimeout(r, delayMs));
                 }
             }
 
-            // Upload updated all-manhwa-metadata.json
-            await push(`\n☁️ Mengupload all-manhwa-metadata.json (${currentAllMeta.length} total)...`);
+            // Upload final all-manhwa-metadata.json
+            await push(`\n☁️ Mengupload all-manhwa-metadata.json (${currentAllMeta.length} entri)...`);
             await uploadJsonToSupabase("all-manhwa-metadata.json", currentAllMeta);
 
             await push(`\n✅ Scrape selesai! Berhasil: ${successCount} | Skip: ${skipCount} | Error: ${errorCount}`);

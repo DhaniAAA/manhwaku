@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -145,17 +145,47 @@ function Terminal({ logs, running, done, logsEndRef }: {
 }
 
 // ─── Scrape Modal ───────────────────────────────────────────
+type ScrapeMode = "metadata_only" | "chapters_only" | "all";
+
+const SCRAPE_MODES: { value: ScrapeMode; label: string; desc: string; speed: string; color: string; icon: React.ReactNode }[] = [
+    {
+        value: "metadata_only",
+        label: "Metadata Saja",
+        desc: "Scrape info komik: judul, cover, genre, sinopsis, status. Tidak menyentuh chapter.",
+        speed: "⚡ Sangat Cepat",
+        color: "sky",
+        icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+    },
+    {
+        value: "chapters_only",
+        label: "Chapters Saja",
+        desc: "Scrape daftar chapter (judul, link, tanggal rilis). Tanpa mengunduh gambar per chapter.",
+        speed: "🚀 Cepat",
+        color: "violet",
+        icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10M4 18h6" /></svg>,
+    },
+    {
+        value: "all",
+        label: "Semua (Lengkap)",
+        desc: "Scrape metadata + daftar chapter + gambar per chapter. Paling lengkap tapi paling lambat.",
+        speed: "🐢 Lambat",
+        color: "orange",
+        icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+    },
+];
+
 function ScrapeModal({ comic, onClose, onDone }: { comic: ComicEntry; onClose: () => void; onDone: () => void }) {
     const { logs, running, done, logsEndRef, runStream } = useStreamingLogs();
     const [ackCloudflare, setAckCloudflare] = useState(false);
     const [started, setStarted] = useState(false);
+    const [scrapeMode, setScrapeMode] = useState<ScrapeMode>("chapters_only");
 
     // Detect production
     const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1");
 
     const handleStart = () => {
         setStarted(true);
-        runStream("/api/admin/scrape", { url: comic.link }, () => setTimeout(onDone, 2000));
+        runStream("/api/admin/scrape", { url: comic.link, scrapeMode }, () => setTimeout(onDone, 2000));
     };
 
     useEffect(() => {
@@ -163,6 +193,17 @@ function ScrapeModal({ comic, onClose, onDone }: { comic: ComicEntry; onClose: (
         window.addEventListener("keydown", h);
         return () => window.removeEventListener("keydown", h);
     }, [running, onClose]);
+
+    const colorMap: Record<string, string> = {
+        sky: "border-sky-500/60 bg-sky-500/10 text-sky-400",
+        violet: "border-violet-500/60 bg-violet-500/10 text-violet-400",
+        orange: "border-orange-500/60 bg-orange-500/10 text-orange-400",
+    };
+    const colorMapIdle: Record<string, string> = {
+        sky: "border-neutral-700 hover:border-sky-600/40 hover:bg-sky-500/5",
+        violet: "border-neutral-700 hover:border-violet-600/40 hover:bg-violet-500/5",
+        orange: "border-neutral-700 hover:border-orange-600/40 hover:bg-orange-500/5",
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
@@ -180,7 +221,7 @@ function ScrapeModal({ comic, onClose, onDone }: { comic: ComicEntry; onClose: (
                 </div>
 
                 {/* Body */}
-                <div className="p-4 flex-1 space-y-3">
+                <div className="p-4 flex-1 overflow-auto space-y-3">
                     {/* Cloudflare Warning */}
                     {isProduction && !started && (
                         <div className="rounded-xl border border-red-700/50 bg-red-950/40 p-4">
@@ -200,6 +241,35 @@ function ScrapeModal({ comic, onClose, onDone }: { comic: ComicEntry; onClose: (
                         </div>
                     )}
 
+                    {/* Mode Selector — hidden once started */}
+                    {!started && (
+                        <div>
+                            <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Pilih Mode Scrape</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                {SCRAPE_MODES.map((m) => {
+                                    const isSelected = scrapeMode === m.value;
+                                    return (
+                                        <button
+                                            key={m.value}
+                                            onClick={() => setScrapeMode(m.value)}
+                                            className={`relative flex flex-col items-start gap-1.5 p-3 rounded-xl border text-left transition-all cursor-pointer ${isSelected ? colorMap[m.color] : `bg-neutral-800/50 text-neutral-400 ${colorMapIdle[m.color]}`}`}
+                                        >
+                                            {isSelected && (
+                                                <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white/10 flex items-center justify-center">
+                                                    <span className="w-2 h-2 rounded-full bg-current" />
+                                                </span>
+                                            )}
+                                            <span className={`${isSelected ? "" : "text-neutral-500"}`}>{m.icon}</span>
+                                            <span className="font-semibold text-xs leading-tight text-white">{m.label}</span>
+                                            <span className="text-[10px] leading-snug text-neutral-500">{m.desc}</span>
+                                            <span className={`text-[10px] font-mono mt-0.5 ${isSelected ? "" : "text-neutral-600"}`}>{m.speed}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     <Terminal logs={logs} running={running} done={done} logsEndRef={logsEndRef} />
                 </div>
 
@@ -211,7 +281,11 @@ function ScrapeModal({ comic, onClose, onDone }: { comic: ComicEntry; onClose: (
                             Berhasil! Data diperbarui.
                         </span>
                     ) : (
-                        <span className="text-neutral-500 text-xs">{running ? "Sedang berjalan..." : started ? "" : "Klik Mulai Scrape untuk memulai."}</span>
+                        <span className="text-neutral-500 text-xs">
+                            {running ? "Sedang berjalan..." : started ? "" : (
+                                <>Mode: <span className="text-white font-medium">{SCRAPE_MODES.find(m => m.value === scrapeMode)?.label}</span></>
+                            )}
+                        </span>
                     )}
                     <div className="flex gap-2">
                         {!running && !done && (
@@ -327,7 +401,8 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     const { logs, running, done, logsEndRef, runStream } = useStreamingLogs();
     const [mode, setMode] = useState<"not_synced" | "all">("not_synced");
     const [maxPerRun, setMaxPerRun] = useState(30);
-    const [delayMs, setDelayMs] = useState(2000);
+    const [delayMs, setDelayMs] = useState(1500);
+    const [concurrency, setConcurrency] = useState(3);
     const [scrapeImages, setScrapeImages] = useState(false);
     const [progress, setProgress] = useState<ScrapeProgress | null>(null);
     const [summary, setSummary] = useState<{ successCount: number; skipCount: number; errorCount: number; total: number } | null>(null);
@@ -351,7 +426,7 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
             const res = await fetch("/api/admin/scrape-all", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ mode, maxPerRun, delayMs, scrapeImages }),
+                body: JSON.stringify({ mode, maxPerRun, delayMs, scrapeImages, concurrency }),
             });
             if (!res.body) return;
             const reader = res.body.getReader();
@@ -367,9 +442,6 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                     if (!part.startsWith("data: ")) continue;
                     try {
                         const data = JSON.parse(part.slice(6));
-                        if (data.message) {
-                            // add to logs via runStream — but we bypass by calling addLog
-                        }
                         if (data.progress) setProgress(data.progress);
                         if (data.success) setSummary(data.summary);
                     } catch { }
@@ -378,7 +450,7 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
         })();
 
         // Use the shared hook for logs
-        runStream("/api/admin/scrape-all", { mode, maxPerRun, delayMs, scrapeImages }, () => setTimeout(onDone, 3000));
+        runStream("/api/admin/scrape-all", { mode, maxPerRun, delayMs, scrapeImages, concurrency }, () => setTimeout(onDone, 3000));
     };
 
     const pct = progress ? Math.round((progress.current / progress.total) * 100) : 0;
@@ -427,7 +499,7 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                             <div>
                                 <label className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block mb-2">Mode</label>
                                 <select value={mode} onChange={e => setMode(e.target.value as any)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500 cursor-pointer">
-                                    <option value="not_synced">⚠️ Belum Sync saja ({"prioritas"})</option>
+                                    <option value="not_synced">⚠️ Belum Ada Chapter (prioritas)</option>
                                     <option value="all">🔄 Semua komik (update chapter baru)</option>
                                 </select>
                             </div>
@@ -436,18 +508,25 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                                 <input type="number" min={1} max={500} value={maxPerRun} onChange={e => setMaxPerRun(+e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500" />
                             </div>
                             <div>
-                                <label className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block mb-2">Delay Antar Komik (ms)</label>
-                                <input type="number" min={500} max={10000} step={500} value={delayMs} onChange={e => setDelayMs(+e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500" />
-                                <p className="text-neutral-600 text-xs mt-1">Min 500ms, disarankan 2000ms</p>
+                                <label className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block mb-2">
+                                    Concurrency <span className="text-emerald-500 font-mono">(paralel)</span>
+                                </label>
+                                <input type="number" min={1} max={6} value={concurrency} onChange={e => setConcurrency(+e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500" />
+                                <p className="text-neutral-600 text-xs mt-1">1–6 komik diproses sekaligus. Default 3 (aman)</p>
                             </div>
                             <div>
+                                <label className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block mb-2">Delay Antar Batch (ms)</label>
+                                <input type="number" min={500} max={10000} step={500} value={delayMs} onChange={e => setDelayMs(+e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500" />
+                                <p className="text-neutral-600 text-xs mt-1">Jeda setelah tiap batch selesai. Min 500ms</p>
+                            </div>
+                            <div className="col-span-2">
                                 <label className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block mb-2">Scrape Gambar Chapter</label>
                                 <button
                                     onClick={() => setScrapeImages(p => !p)}
                                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${scrapeImages ? "bg-orange-600/20 border-orange-600/40 text-orange-400" : "bg-neutral-800 border-neutral-700 text-neutral-400"
                                         }`}
                                 >
-                                    <span>{scrapeImages ? "✅ Ya — Scrape gambar" : "⚡ Tidak — Metadata saja (cepat)"}</span>
+                                    <span>{scrapeImages ? "✅ Ya — Scrape gambar" : "⚡ Tidak — Chapter list saja (cepat)"}</span>
                                     <div className={`w-9 h-5 rounded-full transition-all ${scrapeImages ? "bg-orange-500" : "bg-neutral-600"} relative`}>
                                         <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${scrapeImages ? "left-4" : "left-0.5"}`} />
                                     </div>

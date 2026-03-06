@@ -9,17 +9,8 @@ const supabase = createClient(
 );
 
 const BUCKET = "manga-data";
-const COMICS_LIST_FILE = "komikindo_scrape_results.json";
-
-/** Normalize slug the same way the scraper does */
-function normalizeSlug(raw: string): string {
-    return raw
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/[\s_]+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-+|-+$/g, "");
-}
+const META_FILE = "all-manhwa-metadata.json";
+const KOMIKINDO_BASE = "https://komikindo.ch/komik";
 
 async function getJsonFromSupabase<T>(filePath: string): Promise<T | null> {
     const { data, error } = await supabase.storage.from(BUCKET).download(filePath);
@@ -29,52 +20,51 @@ async function getJsonFromSupabase<T>(filePath: string): Promise<T | null> {
 
 export async function GET() {
     try {
-        // Load comics list from Supabase Storage
-        const comicsList = await getJsonFromSupabase<
-            Array<{ Title: string; Link: string; Slug: string; Image: string; Type: string }>
-        >(COMICS_LIST_FILE);
+        // Sumber tunggal: all-manhwa-metadata.json dari Supabase
+        const allMeta = await getJsonFromSupabase<Array<{
+            slug: string;
+            title: string;
+            cover_url: string;
+            type: string;
+            status: string;
+            total_chapters: number;
+            latestChapters: Array<{ title: string; waktu_rilis: string; slug: string }>;
+            lastUpdateTime: string;
+            genres: string[];
+            genre: string;
+        }>>(META_FILE);
 
-        if (!comicsList) {
-            return NextResponse.json({ error: "komikindo_scrape_results.json not found in Supabase" }, { status: 404 });
+        if (!allMeta) {
+            return NextResponse.json({ error: `${META_FILE} not found in Supabase` }, { status: 404 });
         }
 
-        // Get all-manhwa-metadata for sync status
-        const allMeta = await getJsonFromSupabase<
-            Array<{ slug: string; total_chapters: number; latestChapters: any[]; lastUpdateTime: string }>
-        >("all-manhwa-metadata.json") ?? [];
-
-        // Build lookup map using normalized slugs
-        const metaMap = new Map(allMeta.map((m) => [normalizeSlug(m.slug), m]));
-
-        // Merge + deduplicate by slug
+        // Deduplicate by slug
         const seenSlugs = new Set<string>();
-        const merged = comicsList
-            .map((comic) => {
-                const slug = normalizeSlug(comic.Slug || comic.Title);
-                const supabaseMeta = metaMap.get(slug);
-                return {
-                    title: comic.Title,
-                    link: comic.Link,
-                    slug,
-                    image: comic.Image,
-                    type: comic.Type,
-                    inSupabase: !!supabaseMeta,
-                    totalChapters: supabaseMeta?.total_chapters ?? 0,
-                    lastUpdated: supabaseMeta?.lastUpdateTime ?? null,
-                    latestChapter: supabaseMeta?.latestChapters?.[0]?.title ?? null,
-                };
-            })
-            .filter((comic) => {
-                if (seenSlugs.has(comic.slug)) return false;
-                seenSlugs.add(comic.slug);
+        const comics = allMeta
+            .filter(m => {
+                if (!m.slug || seenSlugs.has(m.slug)) return false;
+                seenSlugs.add(m.slug);
                 return true;
-            });
+            })
+            .map(m => ({
+                title: m.title,
+                slug: m.slug,
+                link: `${KOMIKINDO_BASE}/${m.slug}/`,
+                image: m.cover_url || "",
+                type: m.type || "Manhwa",
+                status: m.status || "Berjalan",
+                inSupabase: true,   // semua di metadata = sudah di Supabase
+                totalChapters: m.total_chapters ?? 0,
+                lastUpdated: m.lastUpdateTime ?? null,
+                latestChapter: m.latestChapters?.[0]?.title ?? null,
+                genres: m.genres ?? [],
+            }));
 
         return NextResponse.json({
-            total: merged.length,
-            synced: merged.filter((c) => c.inSupabase).length,
-            notSynced: merged.filter((c) => !c.inSupabase).length,
-            comics: merged,
+            total: comics.length,
+            synced: comics.length,
+            notSynced: 0,
+            comics,
         });
     } catch (err: any) {
         console.error("[admin/comics-list]", err);
