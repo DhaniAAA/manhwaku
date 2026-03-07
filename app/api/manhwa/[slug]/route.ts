@@ -1,24 +1,20 @@
-// app/api/manga/[slug]/route.ts
+// app/api/manhwa/[slug]/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
+// 🚀 EGRESS OPTIMIZATION:
+// Menggunakan Next.js ISR Cache (5 menit) agar Vercel CDN menanggung beban fetch,
+// bukan meredirect user langsung ke Supabase (yang memakan kuota Egress GBs).
+export const revalidate = 300;
 
 // Client sekali saja (module scope → reused antar invocation di Edge)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: { persistSession: false },
-    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) },
-  }
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 const BUCKET = "manga-data";
-
-// Simple in-memory cache untuk signed URL (valid ~1 menit)
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 export async function GET(
   request: Request,
@@ -35,41 +31,34 @@ export async function GET(
 
     const filePath = `${slug}/${type}.json`;
 
-    // Kunci cache unik per file
-    const cacheKey = `${slug}:${type}`;
-    const now = Date.now();
-    const cached = signedUrlCache.get(cacheKey);
+    // Fetch konten langsung dari Supabase
+    // Karena ada "revalidate = 300", Next.js/Vercel hanya akan execute ini max 1x per 5 menit per file
+    const { data, error } = await supabase.storage.from(BUCKET).download(filePath);
 
-    let signedUrl: string;
-
-    if (cached && now < cached.expiresAt) {
-      signedUrl = cached.url;
-    } else {
-      // Generate signed URL
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(filePath, 3600); // 1 jam
-
-      if (error || !data?.signedUrl) {
-        console.error(`[Supabase] Signed URL failed for ${filePath}:`, error?.message);
-        return NextResponse.json(
-          { error: "File not found or inaccessible" },
-          { status: 404 }
-        );
-      }
-
-      signedUrl = data.signedUrl;
-      signedUrlCache.set(cacheKey, {
-        url: signedUrl,
-        expiresAt: now + 1 * 60 * 1000, // 1 menit
-      });
+    if (error || !data) {
+      console.error(`[Supabase] Download failed for ${filePath}:`, error?.message);
+      return NextResponse.json(
+        { error: "File not found or inaccessible" },
+        { status: 404 }
+      );
     }
 
-    // Langsung redirect ke Supabase CDN (edge global!)
-    return NextResponse.redirect(signedUrl, 307);
+    let json;
+    try {
+      json = JSON.parse(await data.text());
+    } catch (e) {
+      return NextResponse.json({ error: "Failed to parse JSON" }, { status: 500 });
+    }
+
+    // Return kontennya langsung dan instruksikan browser untuk ikut melakukan caching
+    return NextResponse.json(json, {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=59"
+      }
+    });
 
   } catch (err) {
-    console.error("[API/manga/[slug]] Unexpected error:", err);
+    console.error("[API/manhwa/[slug]] Unexpected error:", err);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

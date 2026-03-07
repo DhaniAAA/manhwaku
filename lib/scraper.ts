@@ -227,3 +227,15 @@ export async function fetchHtml(url: string, retries = 2): Promise<string> {
 
     throw lastError ?? new Error(`Failed to fetch ${url}`);
 }
+
+/**
+ * Normalize chapter slug: "chapter100" → "chapter-100"
+ * Memperbaiki slug lama yang tidak ada hyphen antara "chapter" dan angka.
+ */
+export function normalizeChapterSlug(slug: string): string {
+    const match = slug.match(/^chapter(\d+(?:\.\d+)?)$/);
+    if (match) {
+        return `chapter-${match[1].replace(/\./g, "-")}`;
+    }
+    return slug;
+}

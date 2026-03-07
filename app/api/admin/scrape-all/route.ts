@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
-import { fetchHtml } from "@/lib/scraper";
+import { fetchHtml, normalizeChapterSlug } from "@/lib/scraper";
 
 export const dynamic = "force-dynamic";
 export const maxDuration: number = 300;
@@ -194,13 +194,20 @@ export async function POST(req: NextRequest) {
                             });
                         }
                     });
-                    const chapters = chaptersRaw.reverse();
 
-                    // 2. Fetch metadata.json & chapters.json dari Supabase secara PARALEL
-                    const [existingMeta, existingData] = await Promise.all([
-                        getJsonFromSupabase<any>(`${slug}/metadata.json`),
-                        getJsonFromSupabase<any>(`${slug}/chapters.json`),
-                    ]);
+                    // Deduplicate — Komikindo sering punya 2x chapter list di HTML (desktop+mobile)
+                    const seenLinks = new Set<string>();
+                    const chaptersDeduped = chaptersRaw.filter(ch => {
+                        if (seenLinks.has(ch.link)) return false;
+                        seenLinks.add(ch.link);
+                        return true;
+                    });
+
+                    const chapters = chaptersDeduped.reverse();
+
+                    // 2. Fetch metadata.json dari Supabase TERLEBIH DAHULU untuk cek egress optimization
+                    const existingMeta = await getJsonFromSupabase<any>(`${slug}/metadata.json`);
+                    const existingMetaTotal = existingMeta?.total_chapters ?? 0;
 
                     // Fallback synopsis dari data lama jika scrape kosong
                     if (!synopsis && existingMeta?.synopsis) {
@@ -210,9 +217,26 @@ export async function POST(req: NextRequest) {
                     // Cek apakah synopsis baru berhasil mengisi yang tadinya kosong
                     const synopsisRefreshed = !existingMeta?.synopsis && !!synopsis;
 
-                    // Gunakan Map (slug → entry) agar bisa cek konten, bukan hanya keberadaan
+                    // 🚀 EGRESS OPTIMIZATION: Jangan download chapters.json yang besar jika tidak perlu
+                    // Jika total chapter web == total chapter lama, dan tidak dipaksa ambil gambar, dan gak ada update synopsis
+                    const skipChaptersDownload = (chapters.length === existingMetaTotal) &&
+                        (!scrapeImages) &&
+                        (!synopsisRefreshed) &&
+                        (existingMetaTotal > 0);
+
+                    if (skipChaptersDownload) {
+                        await push(`   ℹ️ [Egress Optimized] Total chapter (${chapters.length}) = data lama, skip download chapters.json.`);
+                        skipCount++;
+                        await pushProgress(globalIdx + 1, limited.length, slug, "skip");
+                        return; // Selesai untuk komik ini, lajut ke berikutnya
+                    }
+
+                    // 3. Batch download chapters.json karena kelihatannya butuh update (atau mode repair)
+                    const existingData = await getJsonFromSupabase<any>(`${slug}/chapters.json`);
+
+                    // Gunakan Map (slug → entry) agar bisa cek konten + dedup existing data
                     const existingChapterMap = new Map<string, any>(
-                        existingData?.chapters?.map((c: any) => [c.slug, c]) ?? []
+                        existingData?.chapters?.map((c: any) => [normalizeChapterSlug(c.slug), { ...c, slug: normalizeChapterSlug(c.slug) }]) ?? []
                     );
 
                     // Chapter baru = belum ada di DB sama sekali
@@ -226,8 +250,8 @@ export async function POST(req: NextRequest) {
                         })
                         : [];
 
-                    // Hitung total chapter kosong gambar (SELALU dihitung, bukan hanya saat scrapeImages=true)
-                    const emptyImageCount = (existingData?.chapters ?? []).filter((c: any) => (c.images?.length ?? 0) === 0).length;
+                    // Hitung total chapter kosong gambar dari deduped data
+                    const emptyImageCount = [...existingChapterMap.values()].filter((c: any) => (c.images?.length ?? 0) === 0).length;
 
                     await push(`   → ${chapters.length} ch di web | ${existingChapterMap.size} tersimpan${emptyImageCount > 0 ? ` | ⚠️ ${emptyImageCount} ch tanpa gambar` : ""}${synopsisRefreshed ? " | 🔄 synopsis baru" : ""}`);
 
@@ -236,15 +260,23 @@ export async function POST(req: NextRequest) {
                         await push(`   💡 Aktifkan "Scrape Gambar" untuk mengisi ${emptyImageCount} chapter yang masih kosong gambarnya.`);
                     }
 
-                    // Perlu update jika: ada chapter baru, atau ada chapter kosong gambar (saat scrapeImages), atau synopsis baru diisi, atau belum ada data
-                    const needsUpdate = newChapters.length > 0 || emptyImageChapters.length > 0 || synopsisRefreshed || !existingData;
+                    // Deteksi duplikat di data lama (raw length > unique slugs)
+                    const existingRawLength = existingData?.chapters?.length ?? 0;
+                    const hasDuplicates = existingRawLength > existingChapterMap.size;
+                    if (hasDuplicates) {
+                        await push(`   🛠️ Membersihkan ${existingRawLength - existingChapterMap.size} chapter duplikat dari data lama.`);
+                    }
+
+                    // Perlu update jika: ada chapter baru, duplikat perlu dibersihkan, dll.
+                    const needsUpdate = newChapters.length > 0 || emptyImageChapters.length > 0 || synopsisRefreshed || !existingData || hasDuplicates;
 
                     if (!needsUpdate) {
                         await push(`   ℹ️ Tidak ada perubahan.`);
                         skipCount++;
                         await pushProgress(globalIdx + 1, limited.length, slug, "skip");
                     } else {
-                        let chapterDataList: any[] = existingData?.chapters ? [...existingData.chapters] : [];
+                        // Inisialisasi dari Map values (bukan raw array) → otomatis dedup
+                        let chapterDataList: any[] = [...existingChapterMap.values()];
 
                         if (scrapeImages) {
                             // Scrape chapter baru + repair chapter dengan images kosong

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
-import { fetchHtml } from "@/lib/scraper";
+import { fetchHtml, normalizeChapterSlug } from "@/lib/scraper";
 
 // Initialize Supabase Client (Admin)
 const supabase = createClient(
@@ -147,8 +147,16 @@ export async function POST(req: NextRequest) {
         }
       });
 
+      // Deduplicate — Komikindo sering punya 2x chapter list di HTML (desktop+mobile)
+      const seenLinks = new Set<string>();
+      const chaptersDeduped = chaptersRaw.filter(ch => {
+        if (seenLinks.has(ch.link)) return false;
+        seenLinks.add(ch.link);
+        return true;
+      });
+
       // Reverse so Chapter 1 is first
-      const chapters = chaptersRaw.reverse();
+      const chapters = chaptersDeduped.reverse();
       const total_chapters = chapters.length;
 
       await pushMessage(`Status: ${metadata['Status']} | Total Chapters Web: ${total_chapters}`);
@@ -189,13 +197,19 @@ export async function POST(req: NextRequest) {
         await uploadToSupabase(`${slug}/metadata.json`, resultMetadata);
         await pushMessage(`✅ Uploaded metadata.json ke folder ${slug}/`);
 
-        // Also update global list (use existing chapter count if already in Supabase)
+        // Also update global list — hitung chapter count dari actual array (dedup by slug)
         const existingChaptersData = await getFromSupabase(`${slug}/chapters.json`);
-        const existingCount = existingChaptersData?.total_chapters ?? 0;
-        const existingLatest = existingChaptersData?.chapters
-          ? (existingChaptersData.chapters as any[]).slice(-2).reverse().map((c: any) => ({ title: c.title, waktu_rilis: c.waktu_rilis, slug: c.slug }))
-          : [];
-        await updateGlobalMetadata(existingCount || total_chapters, existingLatest);
+        let actualChapterCount = 0;
+        let existingLatest: any[] = [];
+        if (existingChaptersData?.chapters) {
+          // Dedup by slug untuk mendapatkan count yang benar
+          const dedupMap = new Map<string, any>();
+          (existingChaptersData.chapters as any[]).forEach((c: any) => dedupMap.set(c.slug, c));
+          actualChapterCount = dedupMap.size;
+          const dedupArr = [...dedupMap.values()];
+          existingLatest = dedupArr.slice(-2).reverse().map((c: any) => ({ title: c.title, waktu_rilis: c.waktu_rilis, slug: c.slug }));
+        }
+        await updateGlobalMetadata(actualChapterCount || total_chapters, existingLatest);
 
         await pushSuccess({ slug, scraped: 0 });
         return;
@@ -204,17 +218,18 @@ export async function POST(req: NextRequest) {
       // ─── MODE: chapters_only  (list, no images) ───────────────────
       if (scrapeMode === "chapters_only") {
         const existingData = await getFromSupabase(`${slug}/chapters.json`);
-        const existingChaptersSet = new Set<string>();
-        const scrapedChaptersData: any[] = existingData?.chapters ? [...existingData.chapters] : [];
+        // Dedup existing chapters by slug via Map (mencegah duplikat dari data lama)
+        const existingChapterMap = new Map<string, any>();
         if (existingData?.chapters) {
-          existingData.chapters.forEach((c: any) => existingChaptersSet.add(c.slug));
-          await pushMessage(`Ditemukan ${existingChaptersSet.size} chapter lama di Supabase.`);
+          (existingData.chapters as any[]).forEach((c: any) => existingChapterMap.set(normalizeChapterSlug(c.slug), { ...c, slug: normalizeChapterSlug(c.slug) }));
+          await pushMessage(`Ditemukan ${existingChapterMap.size} chapter lama di Supabase.`);
         }
+        const scrapedChaptersData: any[] = [...existingChapterMap.values()];
 
         let newCount = 0;
         for (const ch of chapters) {
           const chSlug = sanitizeSlug(ch.chapter);
-          if (existingChaptersSet.has(chSlug)) continue;
+          if (existingChapterMap.has(chSlug)) continue;
           scrapedChaptersData.push({
             slug: chSlug,
             title: ch.chapter,
@@ -226,7 +241,13 @@ export async function POST(req: NextRequest) {
           newCount++;
         }
 
-        if (newCount > 0 || !existingData) {
+        // Force update jika data lama punya duplikat (raw length > deduped map size)
+        const hasDuplicates = (existingData?.chapters?.length ?? 0) > existingChapterMap.size;
+        if (hasDuplicates) {
+          await pushMessage(`🛠️ Membersihkan ${(existingData?.chapters?.length ?? 0) - existingChapterMap.size} chapter duplikat dari data lama.`);
+        }
+
+        if (newCount > 0 || !existingData || hasDuplicates) {
           const resultChapters = { slug, title, total_chapters: scrapedChaptersData.length, chapters: scrapedChaptersData };
           await uploadToSupabase(`${slug}/chapters.json`, resultChapters);
           await pushMessage(`✅ Uploaded chapters.json (${newCount} chapter baru) ke folder ${slug}/`);
@@ -253,16 +274,16 @@ export async function POST(req: NextRequest) {
           getFromSupabase(`${slug}/metadata.json`),
         ]);
 
-        // Gunakan Map untuk bisa cek konten (bukan hanya keberadaan)
+        // Gunakan Map untuk bisa cek konten + dedup existing data by slug
         const existingChapterMap = new Map<string, any>();
         if (existingData?.chapters) {
-          existingData.chapters.forEach((c: any) => existingChapterMap.set(c.slug, c));
+          (existingData.chapters as any[]).forEach((c: any) => existingChapterMap.set(normalizeChapterSlug(c.slug), { ...c, slug: normalizeChapterSlug(c.slug) }));
           await pushMessage(`Ditemukan ${existingChapterMap.size} chapter lama di Supabase.`);
         }
 
         // Identifikasi chapter kosong gambar yang perlu di-repair
         const emptyImageSlugs = new Set<string>(
-          (existingData?.chapters ?? []).filter((c: any) => (c.images?.length ?? 0) === 0).map((c: any) => c.slug)
+          [...existingChapterMap.values()].filter((c: any) => (c.images?.length ?? 0) === 0).map((c: any) => c.slug)
         );
         if (emptyImageSlugs.size > 0) {
           await pushMessage(`⚠️ ${emptyImageSlugs.size} chapter ditemukan kosong gambar, akan di-repair.`);
@@ -272,7 +293,8 @@ export async function POST(req: NextRequest) {
         const synopsisRefreshed = !existingMetaData?.synopsis && !!synopsis;
         if (synopsisRefreshed) await pushMessage(`🔄 Synopsis baru ditemukan (sebelumnya kosong), akan diperbarui.`);
 
-        const scrapedChaptersData: any[] = existingData?.chapters ? [...existingData.chapters] : [];
+        // Inisialisasi dari Map values (bukan raw array) → otomatis dedup
+        const scrapedChaptersData: any[] = [...existingChapterMap.values()];
         let newScrapedCount = 0;
         let repairedCount = 0;
 
@@ -318,7 +340,13 @@ export async function POST(req: NextRequest) {
           await new Promise(r => setTimeout(r, 1000));
         }
 
-        if (newScrapedCount > 0 || repairedCount > 0 || emptyImageSlugs.size > 0 || !existingData || synopsisRefreshed) {
+        // Force update jika data lama punya duplikat
+        const hasDuplicates = (existingData?.chapters?.length ?? 0) > existingChapterMap.size;
+        if (hasDuplicates) {
+          await pushMessage(`🛠️ Membersihkan ${(existingData?.chapters?.length ?? 0) - existingChapterMap.size} chapter duplikat dari data lama.`);
+        }
+
+        if (newScrapedCount > 0 || repairedCount > 0 || emptyImageSlugs.size > 0 || !existingData || synopsisRefreshed || hasDuplicates) {
           const resultMetadata = { slug, title, url, cover_url, genres, synopsis, metadata, total_chapters: scrapedChaptersData.length };
           await uploadToSupabase(`${slug}/metadata.json`, resultMetadata);
           await pushMessage(`✅ Uploaded metadata.json ke folder ${slug}/`);
