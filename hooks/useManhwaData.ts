@@ -48,7 +48,18 @@ export function useManhwaData() {
 
                 // Validasi bahwa data adalah array
                 if (Array.isArray(data)) {
-                    setManhwas(data);
+                    // Deduplicate berdasarkan slug — jika all-manhwa-metadata.json
+                    // memiliki entri ganda, ambil yang pertama saja.
+                    const seen = new Set<string>();
+                    const unique = data.filter((item: Manhwa) => {
+                        if (!item.slug || seen.has(item.slug)) return false;
+                        seen.add(item.slug);
+                        return true;
+                    });
+                    if (unique.length < data.length) {
+                        console.warn(`[useManhwaData] Ditemukan ${data.length - unique.length} entri duplikat, dihapus.`);
+                    }
+                    setManhwas(unique);
                 } else {
                     console.error("Format data salah:", data);
                 }

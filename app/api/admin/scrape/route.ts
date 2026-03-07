@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
+import { fetchHtml } from "@/lib/scraper";
 
 // Initialize Supabase Client (Admin)
 const supabase = createClient(
@@ -8,20 +9,6 @@ const supabase = createClient(
   process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 const BUCKET_NAME = "manga-data";
-
-const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-];
-
-const getHeaders = () => ({
-  'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.5',
-  'Connection': 'keep-alive',
-  'Upgrade-Insecure-Requests': '1',
-  'Referer': 'https://komikindo.ch/',
-});
 
 // Helper for relative time to ISO
 function convertRelativeToIso(relativeStr: string) {
@@ -55,12 +42,6 @@ function sanitizeSlug(text: string) {
     .replace(/[\s_]+/g, "-")      // spaces → hyphen
     .replace(/-+/g, "-")          // collapse multiple hyphens
     .replace(/^-+|-+$/g, "");     // trim
-}
-
-async function fetchHtml(url: string) {
-  const res = await fetch(url, { headers: getHeaders(), cache: 'no-store' });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-  return res.text();
 }
 
 // Upload file to Supabase Storage
@@ -267,22 +248,43 @@ export async function POST(req: NextRequest) {
 
       // ─── MODE: all (default) — metadata + chapters + images ───────
       {
-        const existingData = await getFromSupabase(`${slug}/chapters.json`);
-        const existingChaptersSet = new Set<string>();
-        if (existingData && existingData.chapters) {
-          existingData.chapters.forEach((c: any) => existingChaptersSet.add(c.slug));
-          await pushMessage(`Ditemukan ${existingChaptersSet.size} chapter lama di Supabase.`);
+        const [existingData, existingMetaData] = await Promise.all([
+          getFromSupabase(`${slug}/chapters.json`),
+          getFromSupabase(`${slug}/metadata.json`),
+        ]);
+
+        // Gunakan Map untuk bisa cek konten (bukan hanya keberadaan)
+        const existingChapterMap = new Map<string, any>();
+        if (existingData?.chapters) {
+          existingData.chapters.forEach((c: any) => existingChapterMap.set(c.slug, c));
+          await pushMessage(`Ditemukan ${existingChapterMap.size} chapter lama di Supabase.`);
         }
+
+        // Identifikasi chapter kosong gambar yang perlu di-repair
+        const emptyImageSlugs = new Set<string>(
+          (existingData?.chapters ?? []).filter((c: any) => (c.images?.length ?? 0) === 0).map((c: any) => c.slug)
+        );
+        if (emptyImageSlugs.size > 0) {
+          await pushMessage(`⚠️ ${emptyImageSlugs.size} chapter ditemukan kosong gambar, akan di-repair.`);
+        }
+
+        // Cek apakah synopsis tadinya kosong tapi sekarang bisa diisi
+        const synopsisRefreshed = !existingMetaData?.synopsis && !!synopsis;
+        if (synopsisRefreshed) await pushMessage(`🔄 Synopsis baru ditemukan (sebelumnya kosong), akan diperbarui.`);
 
         const scrapedChaptersData: any[] = existingData?.chapters ? [...existingData.chapters] : [];
         let newScrapedCount = 0;
+        let repairedCount = 0;
 
         for (let i = 0; i < chapters.length; i++) {
           const ch = chapters[i];
           const chSlug = sanitizeSlug(ch.chapter);
-          if (existingChaptersSet.has(chSlug)) continue;
+          const isRepair = emptyImageSlugs.has(chSlug);
 
-          await pushMessage(`Scraping Chapter: ${ch.chapter}... [${i + 1}/${chapters.length}]`);
+          // Skip hanya jika sudah ada DAN memiliki gambar
+          if (existingChapterMap.has(chSlug) && !isRepair) continue;
+
+          await pushMessage(`${isRepair ? "🔧 Repair" : "Scraping"} Chapter: ${ch.chapter}... [${i + 1}/${chapters.length}]`);
           try {
             const chHtml = await fetchHtml(ch.link);
             const $ch = cheerio.load(chHtml);
@@ -297,8 +299,16 @@ export async function POST(req: NextRequest) {
             }
             if (images.length > 0) {
               await pushMessage(`✓ Sukses mendapat ${images.length} gambar untuk ${ch.chapter}`);
-              scrapedChaptersData.push({ slug: chSlug, title: ch.chapter, url: ch.link, waktu_rilis: ch.waktu_rilis, total_images: images.length, images });
-              newScrapedCount++;
+              const entry = { slug: chSlug, title: ch.chapter, url: ch.link, waktu_rilis: ch.waktu_rilis, total_images: images.length, images };
+              if (isRepair) {
+                // Update entri lama
+                const idx = scrapedChaptersData.findIndex((c: any) => c.slug === chSlug);
+                if (idx >= 0) scrapedChaptersData[idx] = entry;
+                repairedCount++;
+              } else {
+                scrapedChaptersData.push(entry);
+                newScrapedCount++;
+              }
             } else {
               await pushMessage(`⚠️ Gagal mendapat gambar untuk ${ch.chapter} (Mungkin Cloudflare / Timeout)`);
             }
@@ -308,22 +318,27 @@ export async function POST(req: NextRequest) {
           await new Promise(r => setTimeout(r, 1000));
         }
 
-        if (newScrapedCount > 0 || !existingData) {
+        if (newScrapedCount > 0 || repairedCount > 0 || emptyImageSlugs.size > 0 || !existingData || synopsisRefreshed) {
           const resultMetadata = { slug, title, url, cover_url, genres, synopsis, metadata, total_chapters: scrapedChaptersData.length };
           await uploadToSupabase(`${slug}/metadata.json`, resultMetadata);
           await pushMessage(`✅ Uploaded metadata.json ke folder ${slug}/`);
 
           const resultChapters = { slug, title, total_chapters: scrapedChaptersData.length, chapters: scrapedChaptersData };
           await uploadToSupabase(`${slug}/chapters.json`, resultChapters);
-          await pushMessage(`✅ Uploaded chapters.json ke folder ${slug}/`);
+
+          const repairFailed = emptyImageSlugs.size > 0 && repairedCount === 0;
+          const repairMsg = repairFailed
+            ? ` | ⚠️ ${emptyImageSlugs.size} repair gagal (Cloudflare? Jalankan dari localhost)`
+            : repairedCount > 0 ? ` | 🔧${repairedCount} repair` : "";
+          await pushMessage(`✅ Uploaded chapters.json ke folder ${slug}/ (+${newScrapedCount} baru${repairMsg})`);
 
           const latestChapters = scrapedChaptersData.slice(-2).reverse().map((c: any) => ({ title: c.title, waktu_rilis: c.waktu_rilis, slug: c.slug }));
           await updateGlobalMetadata(scrapedChaptersData.length, latestChapters);
         } else {
-          await pushMessage(`ℹ️ Tidak ada chapter baru direkam. Selesai.`);
+          await pushMessage(`ℹ️ Tidak ada chapter baru, repair, atau perubahan synopsis. Selesai.`);
         }
 
-        await pushSuccess({ slug, scraped: newScrapedCount });
+        await pushSuccess({ slug, scraped: newScrapedCount, repaired: repairedCount });
       }
     } catch (err: any) {
       console.error(err);

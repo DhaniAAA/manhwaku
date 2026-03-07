@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
+import { fetchHtml } from "@/lib/scraper";
 
 export const dynamic = "force-dynamic";
 
@@ -12,20 +13,6 @@ const supabase = createClient(
 const BUCKET = "manga-data";
 const META_FILE = "all-manhwa-metadata.json";
 const KOMIKINDO_BASE = "https://komikindo.ch/komik";
-
-const USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-];
-
-function getHeaders() {
-    return {
-        "User-Agent": USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        Referer: "https://komikindo.ch/",
-    };
-}
 
 /** Normalize slug matching Supabase folder naming:
  *  apostrophe (') → space → hyphen  e.g. "Margrave's" → "margrave-s"
@@ -150,9 +137,7 @@ export async function POST(req: NextRequest) {
             if (searchUrl) {
                 await push(`🌐 Scraping halaman daftar: ${searchUrl}`);
                 try {
-                    const res = await fetch(searchUrl, { headers: getHeaders(), cache: "no-store" });
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const html = await res.text();
+                    const html = await fetchHtml(searchUrl);
                     const $ = cheerio.load(html);
                     let scraped = 0;
 

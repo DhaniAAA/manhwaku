@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
+import { fetchHtml } from "@/lib/scraper";
 
 export const dynamic = "force-dynamic";
 export const maxDuration: number = 300;
@@ -12,20 +13,6 @@ const supabase = createClient(
 const BUCKET = "manga-data";
 const META_FILE = "all-manhwa-metadata.json";
 const KOMIKINDO_BASE = "https://komikindo.ch/komik";
-
-const USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-];
-
-const getHeaders = () => ({
-    "User-Agent": USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-    Referer: "https://komikindo.ch/",
-    Connection: "keep-alive",
-});
 
 function sanitizeSlug(text: string) {
     return text
@@ -51,12 +38,6 @@ function convertRelativeToIso(relativeStr: string) {
     else if (unit === "hour") date.setHours(date.getHours() - amount);
     else if (unit === "minute") date.setMinutes(date.getMinutes() - amount);
     return date.toISOString();
-}
-
-async function fetchHtml(url: string) {
-    const res = await fetch(url, { headers: getHeaders(), cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.text();
 }
 
 async function getJsonFromSupabase<T>(filePath: string): Promise<T | null> {
@@ -159,7 +140,12 @@ export async function POST(req: NextRequest) {
             let successCount = 0;
             let skipCount = 0;
             let errorCount = 0;
-            const currentAllMeta: any[] = [...allMeta];
+
+            // Gunakan Map (slug → entry) agar duplikat TIDAK MUNGKIN terjadi.
+            // Array biasa memungkinkan duplikat jika findIndex gagal; Map tidak.
+            const currentAllMeta = new Map<string, any>(
+                allMeta.map((m: any) => [m.slug, m])
+            );
 
             // ─── Per-comic scrape function ─────────────────────────────────────
             const scrapeOne = async (comic: typeof limited[0], globalIdx: number) => {
@@ -221,23 +207,52 @@ export async function POST(req: NextRequest) {
                         synopsis = existingMeta.synopsis;
                         await push(`   ℹ️ Synopsis kosong dari web, pakai synopsis lama.`);
                     }
+                    // Cek apakah synopsis baru berhasil mengisi yang tadinya kosong
+                    const synopsisRefreshed = !existingMeta?.synopsis && !!synopsis;
 
-                    const existingChapterSlugs = new Set<string>(
-                        existingData?.chapters?.map((c: any) => c.slug) ?? []
+                    // Gunakan Map (slug → entry) agar bisa cek konten, bukan hanya keberadaan
+                    const existingChapterMap = new Map<string, any>(
+                        existingData?.chapters?.map((c: any) => [c.slug, c]) ?? []
                     );
-                    const newChapters = chapters.filter(c => !existingChapterSlugs.has(sanitizeSlug(c.chapter)));
 
-                    await push(`   → ${chapters.length} chapter di web | ${existingChapterSlugs.size} sudah tersimpan`);
+                    // Chapter baru = belum ada di DB sama sekali
+                    const newChapters = chapters.filter(c => !existingChapterMap.has(sanitizeSlug(c.chapter)));
 
-                    if (newChapters.length === 0 && existingData) {
-                        await push(`   ℹ️ Tidak ada chapter baru.`);
+                    // Chapter yang sudah ada tapi images-nya kosong (perlu di-repair jika scrapeImages=true)
+                    const emptyImageChapters = scrapeImages
+                        ? chapters.filter(c => {
+                            const existing = existingChapterMap.get(sanitizeSlug(c.chapter));
+                            return existing && (existing.images?.length ?? 0) === 0;
+                        })
+                        : [];
+
+                    // Hitung total chapter kosong gambar (SELALU dihitung, bukan hanya saat scrapeImages=true)
+                    const emptyImageCount = (existingData?.chapters ?? []).filter((c: any) => (c.images?.length ?? 0) === 0).length;
+
+                    await push(`   → ${chapters.length} ch di web | ${existingChapterMap.size} tersimpan${emptyImageCount > 0 ? ` | ⚠️ ${emptyImageCount} ch tanpa gambar` : ""}${synopsisRefreshed ? " | 🔄 synopsis baru" : ""}`);
+
+                    // Jika ada chapter kosong gambar tapi scrapeImages=false, beri petunjuk
+                    if (emptyImageCount > 0 && !scrapeImages) {
+                        await push(`   💡 Aktifkan "Scrape Gambar" untuk mengisi ${emptyImageCount} chapter yang masih kosong gambarnya.`);
+                    }
+
+                    // Perlu update jika: ada chapter baru, atau ada chapter kosong gambar (saat scrapeImages), atau synopsis baru diisi, atau belum ada data
+                    const needsUpdate = newChapters.length > 0 || emptyImageChapters.length > 0 || synopsisRefreshed || !existingData;
+
+                    if (!needsUpdate) {
+                        await push(`   ℹ️ Tidak ada perubahan.`);
                         skipCount++;
                         await pushProgress(globalIdx + 1, limited.length, slug, "skip");
                     } else {
                         let chapterDataList: any[] = existingData?.chapters ? [...existingData.chapters] : [];
 
                         if (scrapeImages) {
-                            for (const ch of newChapters) {
+                            // Scrape chapter baru + repair chapter dengan images kosong
+                            const toProcess = [
+                                ...newChapters.map(c => ({ ch: c, isRepair: false })),
+                                ...emptyImageChapters.map(c => ({ ch: c, isRepair: true })),
+                            ];
+                            for (const { ch, isRepair } of toProcess) {
                                 const chSlug = sanitizeSlug(ch.chapter);
                                 try {
                                     const chHtml = await fetchHtml(ch.link);
@@ -247,15 +262,26 @@ export async function POST(req: NextRequest) {
                                         $ch(sel).each((_, img) => { const src = $ch(img).attr("src"); if (src?.startsWith("http")) images.push(src); });
                                         if (images.length > 0) break;
                                     }
-                                    await push(`   ✓ ${ch.chapter}: ${images.length} gambar`);
-                                    chapterDataList.push({ slug: chSlug, title: ch.chapter, url: ch.link, waktu_rilis: ch.waktu_rilis, total_images: images.length, images });
+                                    await push(`   ${isRepair ? "🔧" : "✓"} ${ch.chapter}: ${images.length} gambar${isRepair ? " (repair)" : ""}`);
+                                    const entry = { slug: chSlug, title: ch.chapter, url: ch.link, waktu_rilis: ch.waktu_rilis, total_images: images.length, images };
+                                    // Repair: update entri lama; Baru: push
+                                    const existingEntryIdx = chapterDataList.findIndex((c: any) => c.slug === chSlug);
+                                    if (existingEntryIdx >= 0) {
+                                        chapterDataList[existingEntryIdx] = entry;
+                                    } else {
+                                        chapterDataList.push(entry);
+                                    }
                                     await new Promise(r => setTimeout(r, 800));
                                 } catch (e: any) {
                                     await push(`   ⚠️ Skip ${ch.chapter}: ${e.message}`);
-                                    chapterDataList.push({ slug: chSlug, title: ch.chapter, url: ch.link, waktu_rilis: ch.waktu_rilis, total_images: 0, images: [] });
+                                    // Baru yang error: simpan kosong; Repair yang error: biarkan entry lama
+                                    if (!isRepair) {
+                                        chapterDataList.push({ slug: chSlug, title: ch.chapter, url: ch.link, waktu_rilis: ch.waktu_rilis, total_images: 0, images: [] });
+                                    }
                                 }
                             }
                         } else {
+                            // Tidak scrape gambar — hanya tambah chapter baru (tanpa images)
                             for (const ch of newChapters) {
                                 chapterDataList.push({ slug: sanitizeSlug(ch.chapter), title: ch.chapter, url: ch.link, waktu_rilis: ch.waktu_rilis, total_images: 0, images: [] });
                             }
@@ -280,16 +306,14 @@ export async function POST(req: NextRequest) {
                             latestChapters: chapterDataList.slice(-2).reverse().map((c: any) => ({ title: c.title, waktu_rilis: c.waktu_rilis, slug: c.slug })),
                             lastUpdateTime: new Date().toISOString(),
                         };
-                        const existingIdx = currentAllMeta.findIndex((m: any) => m.slug === slug);
-                        if (existingIdx >= 0) {
-                            const old = currentAllMeta[existingIdx];
+                        // Simpan ke Map — key = slug, jadi duplikat tidak mungkin terjadi
+                        const old = currentAllMeta.get(slug);
+                        if (old) {
                             newEntry.rating = old.rating || "0";
                             if (newEntry.pengarang === "Unknown" && old.pengarang && old.pengarang !== "Unknown") newEntry.pengarang = old.pengarang;
                             if (newEntry.ilustrator === "Unknown" && old.ilustrator && old.ilustrator !== "Unknown") newEntry.ilustrator = old.ilustrator;
-                            currentAllMeta[existingIdx] = newEntry;
-                        } else {
-                            currentAllMeta.push(newEntry);
                         }
+                        currentAllMeta.set(slug, newEntry);
 
                         await push(`   ✅ Selesai: ${title} (${newChapters.length} chapter baru)`);
                         successCount++;
@@ -321,9 +345,10 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // Upload final all-manhwa-metadata.json
-            await push(`\n☁️ Mengupload all-manhwa-metadata.json (${currentAllMeta.length} entri)...`);
-            await uploadJsonToSupabase("all-manhwa-metadata.json", currentAllMeta);
+            // Convert Map → array untuk upload (urutan sesuai map insertion order)
+            const finalMeta = Array.from(currentAllMeta.values());
+            await push(`\n☁️ Mengupload all-manhwa-metadata.json (${finalMeta.length} entri, 0 duplikat)...`);
+            await uploadJsonToSupabase("all-manhwa-metadata.json", finalMeta);
 
             await push(`\n✅ Scrape selesai! Berhasil: ${successCount} | Skip: ${skipCount} | Error: ${errorCount}`);
             await pushDone({ successCount, skipCount, errorCount, total: limited.length });

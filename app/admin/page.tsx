@@ -20,6 +20,20 @@ interface ListResponse {
     notSynced: number;
     comics: ComicEntry[];
 }
+interface StorageStats {
+    totalInMeta: number;
+    totalFolders: number;
+    withFolder: number;
+    withoutFolder: number;
+    withChapters: number;
+    withoutChapters: number;
+    orphanCount: number;
+    orphanFolders: string[];
+    slugMismatchCount: number;
+    slugMismatch: Array<{ storageSlug: string; metaSlug: string }>;
+    pctFoldered: number;
+    pctChaptered: number;
+}
 interface LogEntry {
     message: string;
     time: string;
@@ -620,6 +634,9 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
 export default function AdminDashboard() {
     const [data, setData] = useState<ListResponse | null>(null);
     const [loading, setLoading] = useState(true);
+    const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+    const [statsLoading, setStatsLoading] = useState(true);
+    const [deletingMismatch, setDeletingMismatch] = useState(false);
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<"all" | "synced" | "not_synced">("all");
     const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -637,12 +654,49 @@ export default function AdminDashboard() {
         finally { setLoading(false); }
     };
 
-    useEffect(() => { fetchData(); }, []);
+    const fetchStorageStats = async () => {
+        setStatsLoading(true);
+        try {
+            const res = await fetch("/api/admin/storage-stats", { cache: "no-store" });
+            setStorageStats(await res.json());
+        } catch (e) { console.error(e); }
+        finally { setStatsLoading(false); }
+    };
+
+    const handleDeleteMismatch = async () => {
+        if (!storageStats?.slugMismatch?.length) return;
+        const names = storageStats.slugMismatch.map(m => m.storageSlug);
+        const confirmed = window.confirm(
+            `⚠️ Hapus ${names.length} folder lama dari Supabase Storage?\n\nFolder: ${names.join(", ")}\n\n⚠️ Data (chapters & metadata) di folder lama AKAN TERHAPUS.\nSetelah ini, scrape ulang komik tersebut agar data terisi kembali.\n\nLanjutkan?`
+        );
+        if (!confirmed) return;
+        setDeletingMismatch(true);
+        try {
+            const res = await fetch("/api/admin/delete-folders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slugs: names }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                alert(`✅ Berhasil hapus ${result.deleted} folder. ${result.failed > 0 ? `\n⚠️ ${result.failed} folder gagal dihapus.` : ""}`);
+                await fetchStorageStats();
+            } else {
+                alert(`❌ Error: ${result.error}`);
+            }
+        } catch (e: any) {
+            alert(`❌ Error: ${e.message}`);
+        } finally {
+            setDeletingMismatch(false);
+        }
+    };
+
+    useEffect(() => { fetchData(); fetchStorageStats(); }, []);
 
     // Reset to page 1 when filters change
     useEffect(() => { setPage(1); }, [search, filter, typeFilter]);
 
-    const filtered = data?.comics.filter((c) => {
+    const filtered = data?.comics?.filter((c) => {
         const q = search.toLowerCase();
         const matchSearch = c.title.toLowerCase().includes(q) || c.slug.includes(q);
         const matchFilter = filter === "all" ? true : filter === "synced" ? c.inSupabase : !c.inSupabase;
@@ -729,25 +783,123 @@ export default function AdminDashboard() {
                 </div>
             )}
 
-            {/* Progress Bar */}
-            {data && (
-                <div className="bg-neutral-900 rounded-2xl border border-neutral-800 p-4 mb-6">
-                    <div className="flex items-center justify-between mb-3">
+            {/* Progress Sync — from Supabase Storage */}
+            <div className="bg-neutral-900 rounded-2xl border border-neutral-800 p-4 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
                         <p className="text-sm font-semibold text-white">Progress Sync</p>
-                        <div className="flex items-center gap-2">
-                            <p className="text-xs text-neutral-400"><span className="text-emerald-400 font-bold">{data.synced}</span> / {data.total}</p>
-                            <button onClick={fetchData} className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                <span className="hidden sm:inline">Refresh</span>
-                            </button>
-                        </div>
+                        <p className="text-neutral-500 text-xs mt-0.5">Berdasarkan folder di Supabase Storage</p>
                     </div>
-                    <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(data.synced / data.total) * 100}%`, background: "linear-gradient(to right, #3b82f6, #10b981)" }} />
-                    </div>
-                    <p className="text-xs text-neutral-500 mt-2">{Math.round((data.synced / data.total) * 100)}% tersinkronisasi</p>
+                    <button
+                        onClick={fetchStorageStats}
+                        disabled={statsLoading}
+                        className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                        <svg className={`w-3.5 h-3.5 ${statsLoading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        <span className="hidden sm:inline">Refresh</span>
+                    </button>
                 </div>
-            )}
+
+                {statsLoading ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-pulse">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="bg-neutral-800 rounded-xl h-16" />
+                        ))}
+                    </div>
+                ) : storageStats ? (
+                    <>
+                        {/* 4 metric cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                            {[
+                                { label: "Di Metadata", value: storageStats.totalInMeta, sub: "all-manhwa-metadata.json", color: "blue" },
+                                { label: "Folder Storage", value: storageStats.totalFolders, sub: `${storageStats.withFolder} dari metadata`, color: "emerald" },
+                                { label: "Ada Chapter", value: storageStats.withChapters, sub: `${storageStats.withoutChapters} kosong`, color: "purple" },
+                                { label: "Orphan Folder", value: storageStats.orphanCount, sub: "folder tanpa metadata", color: storageStats.orphanCount > 0 ? "amber" : "neutral" },
+                            ].map(({ label, value, sub, color }) => (
+                                <div key={label} className={`bg-neutral-800/60 rounded-xl p-3 border border-neutral-700/50`}>
+                                    <p className="text-neutral-400 text-[10px] font-medium uppercase tracking-wider mb-1">{label}</p>
+                                    <p className={`text-2xl font-black text-${color}-400`}>{value}</p>
+                                    <p className="text-neutral-600 text-[10px] mt-0.5 truncate">{sub}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Progress bars */}
+                        <div className="space-y-3">
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-xs text-neutral-400">Storage Sync (folder di Supabase)</span>
+                                    <span className="text-xs font-mono text-emerald-400">{storageStats.withFolder}/{storageStats.totalInMeta} · {storageStats.pctFoldered}%</span>
+                                </div>
+                                <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${storageStats.pctFoldered}%`, background: "linear-gradient(to right, #3b82f6, #10b981)" }} />
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-xs text-neutral-400">Chapter Sync (ada data chapter)</span>
+                                    <span className="text-xs font-mono text-purple-400">{storageStats.withChapters}/{storageStats.totalInMeta} · {storageStats.pctChaptered}%</span>
+                                </div>
+                                <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${storageStats.pctChaptered}%`, background: "linear-gradient(to right, #a855f7, #6366f1)" }} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Slug mismatch — folder lama bisa dihapus */}
+                        {(storageStats.slugMismatchCount ?? 0) > 0 && (
+                            <div className="mt-3 bg-sky-900/10 border border-sky-700/25 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                                <svg className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <p className="text-sky-400 text-xs font-semibold">{storageStats.slugMismatchCount} folder lama dengan nama slug berbeda</p>
+                                        <button
+                                            onClick={handleDeleteMismatch}
+                                            disabled={deletingMismatch}
+                                            className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium rounded-lg bg-red-600/15 border border-red-600/25 text-red-400 hover:bg-red-600/25 hover:border-red-500/40 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                        >
+                                            {deletingMismatch ? (
+                                                <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                            ) : (
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            )}
+                                            {deletingMismatch ? "Menghapus..." : "Hapus Folder Lama"}
+                                        </button>
+                                    </div>
+                                    <p className="text-neutral-500 text-[10px] mt-1">
+                                        Folder ini berisi data lama dengan slug format berbeda. Setelah dihapus, komik perlu di-scrape ulang agar data terisi di folder baru.
+                                    </p>
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                        {storageStats.slugMismatch.slice(0, 4).map(m => (
+                                            <span key={m.storageSlug} className="text-[9px] font-mono bg-neutral-800 text-neutral-400 rounded px-1.5 py-0.5">
+                                                {m.storageSlug} → {m.metaSlug}
+                                            </span>
+                                        ))}
+                                        {storageStats.slugMismatchCount > 4 && <span className="text-[9px] text-neutral-600">+{storageStats.slugMismatchCount - 4} lainnya</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* True orphan warning */}
+                        {storageStats.orphanCount > 0 && (
+                            <div className="mt-3 bg-amber-900/10 border border-amber-700/25 rounded-xl px-4 py-2.5 flex items-start gap-2.5">
+                                <svg className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                <div>
+                                    <p className="text-amber-400 text-xs font-semibold">{storageStats.orphanCount} folder orphan — folder tanpa komik</p>
+                                    <p className="text-neutral-500 text-[10px] mt-0.5">
+                                        Folder ini ada di storage tapi tidak ada kaitannya dengan komik manapun di metadata.
+                                        Bisa dihapus manual di Supabase Storage jika tidak dibutuhkan.
+                                    </p>
+                                    <p className="text-neutral-500 text-[10px] mt-1 font-mono">{storageStats.orphanFolders.slice(0, 5).join(", ")}{storageStats.orphanCount > 5 ? ` +${storageStats.orphanCount - 5} lainnya` : ""}</p>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <p className="text-neutral-500 text-sm">Gagal memuat statistik storage.</p>
+                )}
+            </div>
 
             {/* Table */}
             <div className="bg-neutral-900 rounded-2xl border border-neutral-800 overflow-hidden">
