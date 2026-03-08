@@ -36,7 +36,7 @@ export async function GET() {
         // Return kontennya langsung dengan Cache-Control untuk browser client
         return NextResponse.json(json, {
             headers: {
-                "Cache-Control": "public, s-maxage=300, stale-while-revalidate=59"
+                "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=59"
             }
         });
 

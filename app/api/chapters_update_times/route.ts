@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
                 headers: {
                     "X-Cache": "HIT",
                     "X-Cache-Expires": new Date(cachedUntil).toISOString(),
+                    "Cache-Control": "public, max-age=60, s-maxage=30, stale-while-revalidate=59",
                 },
             });
         }
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
                 cachedData = updateTimes;
                 cachedUntil = now + CACHE_DURATION_MS;
                 return NextResponse.json(updateTimes, {
-                    headers: { "X-Cache": "MISS", "X-Method": "fallback" },
+                    headers: { "X-Cache": "MISS", "X-Method": "fallback", "Cache-Control": "public, max-age=60, s-maxage=30, stale-while-revalidate=59" },
                 });
             }
 
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
         console.log(`[API] chapters_update_times: ${Object.keys(updateTimes).length} entries (RPC)`);
 
         return NextResponse.json(updateTimes, {
-            headers: { "X-Cache": "MISS", "X-Method": "rpc" },
+            headers: { "X-Cache": "MISS", "X-Method": "rpc", "Cache-Control": "public, max-age=60, s-maxage=30, stale-while-revalidate=59" },
         });
 
     } catch (err) {

@@ -118,7 +118,7 @@ function useStreamingLogs() {
         }
     };
 
-    return { logs, running, done, logsEndRef, addLog, reset, runStream };
+    return { logs, running, setRunning, done, logsEndRef, addLog, reset, runStream };
 }
 
 // ─── Terminal UI ──────────────────────────────────────────────
@@ -412,7 +412,7 @@ interface ScrapeProgress {
 }
 
 function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-    const { logs, running, done, logsEndRef, runStream } = useStreamingLogs();
+    const { logs, running, setRunning, done, logsEndRef, reset, addLog } = useStreamingLogs();
     const [mode, setMode] = useState<"not_synced" | "all">("not_synced");
     const [maxPerRun, setMaxPerRun] = useState(30);
     const [delayMs, setDelayMs] = useState(1500);
@@ -434,37 +434,49 @@ function ScrapeAllModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     const handleStart = () => {
         setProgress(null);
         setSummary(null);
+        reset(); // Dari useStreamingLogs
+        addLog("🚀 Memulai proses scrape-all otomatis...");
 
-        // Custom runner to intercept progress events
+        // Custom runner to intercept progress and logs
         (async () => {
-            const res = await fetch("/api/admin/scrape-all", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ mode, maxPerRun, delayMs, scrapeImages, concurrency }),
-            });
-            if (!res.body) return;
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            let buf = "";
-            while (true) {
-                const { done: d, value } = await reader.read();
-                if (d) break;
-                buf += decoder.decode(value, { stream: true });
-                const parts = buf.split("\n\n");
-                buf = parts.pop() ?? "";
-                for (const part of parts) {
-                    if (!part.startsWith("data: ")) continue;
-                    try {
-                        const data = JSON.parse(part.slice(6));
-                        if (data.progress) setProgress(data.progress);
-                        if (data.success) setSummary(data.summary);
-                    } catch { }
+            setRunning(true);
+            try {
+                const res = await fetch("/api/admin/scrape-all", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ mode, maxPerRun, delayMs, scrapeImages, concurrency }),
+                });
+                if (!res.body) throw new Error("No response body");
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buf = "";
+                while (true) {
+                    const { done: d, value } = await reader.read();
+                    if (d) break;
+                    buf += decoder.decode(value, { stream: true });
+                    const parts = buf.split("\n\n");
+                    buf = parts.pop() ?? "";
+                    for (const part of parts) {
+                        if (!part.startsWith("data: ")) continue;
+                        try {
+                            const data = JSON.parse(part.slice(6));
+                            if (data.progress) setProgress(data.progress);
+                            if (data.message) addLog(data.message);
+                            if (data.success) {
+                                setSummary(data.summary);
+                                addLog("✅ Scrape All selesai!");
+                                setTimeout(onDone, 3000);
+                            }
+                            if (data.error) addLog(`❌ Error: ${data.error}`);
+                        } catch { }
+                    }
                 }
+            } catch (err: any) {
+                addLog(`❌ Fatal Error: ${err.message}`);
+            } finally {
+                setRunning(false);
             }
         })();
-
-        // Use the shared hook for logs
-        runStream("/api/admin/scrape-all", { mode, maxPerRun, delayMs, scrapeImages, concurrency }, () => setTimeout(onDone, 3000));
     };
 
     const pct = progress ? Math.round((progress.current / progress.total) * 100) : 0;
@@ -714,19 +726,19 @@ export default function AdminDashboard() {
                 <ScrapeModal
                     comic={scrapeTarget}
                     onClose={() => setScrapeTarget(null)}
-                    onDone={() => { setScrapeTarget(null); fetchData(); }}
+                    onDone={() => { fetchData(); }}
                 />
             )}
             {showGenerateModal && (
                 <GenerateListModal
                     onClose={() => setShowGenerateModal(false)}
-                    onDone={() => { setShowGenerateModal(false); fetchData(); }}
+                    onDone={() => { fetchData(); }}
                 />
             )}
             {showScrapeAll && (
                 <ScrapeAllModal
                     onClose={() => setShowScrapeAll(false)}
-                    onDone={() => { setShowScrapeAll(false); fetchData(); }}
+                    onDone={() => { fetchData(); }}
                 />
             )}
 
