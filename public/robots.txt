@@ -1,7 +1,7 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Allow: /
-Disallow: /api/
+Allow: /genre/
 
-# Sitemap
-Sitemap: https://www.manhwaku.biz.id/sitemap.xml
+Disallow: /api/
+Disallow: /admin/
+Sitemap: https://manhwaku.biz.id/sitemap.xml
