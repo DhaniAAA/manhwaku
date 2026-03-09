@@ -2,24 +2,102 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Home, Play, Bookmark, ListPlus, Star, Eye, Trophy, List, Bell, Book, Search, ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowLeft, Home, Play, Bookmark, ListPlus, List, Star, Book, Search, ArrowDown, ArrowUp, ThumbsUp } from "lucide-react";
 import { ResponsiveAd } from "@/components/Ads/AdComponents";
-import { ManhwaDetail, ChapterDetail } from "@/types/manhwa";
+import { ManhwaDetail, ChapterDetail, Manhwa } from "@/types/manhwa";
 
 // --- Props Interface ---
 interface DetailContentProps {
     meta: ManhwaDetail;
     chapters: ChapterDetail[];
     slug: string;
+    recommendations: Manhwa[];
 }
 
-export default function DetailContent({ meta, chapters, slug }: DetailContentProps) {
+export default function DetailContent({ meta, chapters, slug, recommendations }: DetailContentProps) {
     // Pagination & Sorting States
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(20);
     const [searchQuery, setSearchQuery] = useState("");
     const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+    const [lastReadSlug, setLastReadSlug] = useState<string | null>(null);
+    const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
+
+    const checkHistory = () => {
+        try {
+            // Cek Riwayat Baca
+            const readStored = localStorage.getItem('manhwa_reading_history');
+            if (readStored) {
+                const readHistory = JSON.parse(readStored);
+                const readEntry = readHistory.find((h: any) => h.slug === slug);
+                if (readEntry && readEntry.lastChapterSlug) {
+                    setLastReadSlug(readEntry.lastChapterSlug);
+                } else {
+                    setLastReadSlug(null);
+                }
+            } else {
+                setLastReadSlug(null);
+            }
+
+            // Cek Bookmark / Simpan
+            const markStored = localStorage.getItem('manhwa_bookmarks');
+            if (markStored) {
+                const bookmarks = JSON.parse(markStored);
+                const markEntry = bookmarks.find((b: any) => b.slug === slug);
+                setIsBookmarked(!!markEntry);
+            } else {
+                setIsBookmarked(false);
+            }
+        } catch (e) {
+            console.error('Error loading state:', e);
+        }
+    };
+
+    // Initial check for reading history and bookmark
+    useEffect(() => {
+        checkHistory();
+
+        // Listen changes from other tabs or from ReadContent directly
+        window.addEventListener('storage', checkHistory);
+        window.addEventListener('reading-history-updated', checkHistory);
+        window.addEventListener('focus', checkHistory);
+
+        return () => {
+            window.removeEventListener('storage', checkHistory);
+            window.removeEventListener('reading-history-updated', checkHistory);
+            window.removeEventListener('focus', checkHistory);
+        };
+    }, [slug]);
+
+    const toggleBookmark = () => {
+        try {
+            const stored = localStorage.getItem('manhwa_bookmarks');
+            let bookmarks = stored ? JSON.parse(stored) : [];
+            const idx = bookmarks.findIndex((b: any) => b.slug === slug);
+
+            if (idx >= 0 && isBookmarked) {
+                // Remove bookmark
+                bookmarks.splice(idx, 1);
+                setIsBookmarked(false);
+            } else {
+                if (!isBookmarked) {
+                    bookmarks.unshift({
+                        slug: slug,
+                        title: meta.title,
+                        cover: meta.cover_url,
+                        savedAt: Date.now()
+                    });
+                    setIsBookmarked(true);
+                }
+            }
+            localStorage.setItem('manhwa_bookmarks', JSON.stringify(bookmarks));
+            // Optional: Tambahkan event listener jika kita punya halaman terpisah untuk bookmark
+            window.dispatchEvent(new Event('bookmarks-updated'));
+        } catch (e) {
+            console.error('Bookmark error:', e);
+        }
+    };
 
     // Get metadata info
     const status = meta.metadata?.Status || "Berjalan";
@@ -61,7 +139,9 @@ export default function DetailContent({ meta, chapters, slug }: DetailContentPro
         setCurrentPage(1);
     }, [sortOrder, itemsPerPage, searchQuery]);
 
-    const firstChapterSlug = sortedChapters.length > 0 ? sortedChapters[sortedChapters.length - 1]?.slug : "#";
+    const firstChapterSlug = chapters.length > 0
+        ? [...chapters].sort((a, b) => extractChapterNumber(a.title) - extractChapterNumber(b.title))[0]?.slug
+        : "#";
 
     return (
         <div className="min-h-screen bg-neutral-950 font-sans text-gray-200 pb-12 relative overflow-hidden">
@@ -115,18 +195,18 @@ export default function DetailContent({ meta, chapters, slug }: DetailContentPro
                             {/* Buttons */}
                             <div className="flex flex-wrap items-center gap-3">
                                 <Link
-                                    href={firstChapterSlug !== "#" ? `/read/${slug}/${firstChapterSlug}` : "#"}
+                                    href={lastReadSlug ? `/read/${slug}/${lastReadSlug}` : (firstChapterSlug !== "#" ? `/read/${slug}/${firstChapterSlug}` : "#")}
                                     className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white px-7 py-3 rounded-full font-bold transition-all shadow-lg shadow-indigo-500/20 shrink-0 hover:scale-[1.03] active:scale-95"
                                 >
                                     <Play size={18} fill="currentColor" />
-                                    Mulai Baca
+                                    {lastReadSlug ? "Lanjut Baca" : "Mulai Baca"}
                                 </Link>
                                 <button
-                                    onClick={() => alert("Fitur segera datang.")}
-                                    className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 px-5 py-3 rounded-full font-medium transition backdrop-blur-md cursor-pointer"
+                                    onClick={toggleBookmark}
+                                    className={`flex items-center justify-center gap-2 border px-5 py-3 rounded-full font-medium transition backdrop-blur-md cursor-pointer ${isBookmarked ? 'bg-violet-600/20 text-violet-300 border-violet-500/50' : 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-200'}`}
                                 >
-                                    <Bookmark size={18} />
-                                    <span className="hidden sm:inline">Simpan</span>
+                                    <Bookmark size={18} fill={isBookmarked ? "currentColor" : "none"} />
+                                    <span className="hidden sm:inline">{isBookmarked ? "Tersimpan" : "Simpan"}</span>
                                 </button>
                                 <button
                                     onClick={() => alert("Fitur segera datang.")}
@@ -164,9 +244,9 @@ export default function DetailContent({ meta, chapters, slug }: DetailContentPro
                 {/* Tags Info */}
                 <div className="flex flex-wrap gap-3 mb-12 text-sm">
                     {meta.genres && meta.genres.length > 0 && meta.genres.map((genre, idx) => (
-                        <span key={idx} className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 rounded-xl text-xs font-medium transition-colors shadow-sm">
+                        <Link key={idx} href={`/genre/${genre.toLowerCase().replace(/\\s+/g, '-')}`} className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white rounded-xl text-xs font-medium transition-colors shadow-sm cursor-pointer">
                             {genre}
-                        </span>
+                        </Link>
                     ))}
 
                     {author && (
@@ -409,6 +489,72 @@ export default function DetailContent({ meta, chapters, slug }: DetailContentPro
                         </>
                     )}
                 </div>
+
+                {/* --- MIGHT ALSO LIKE (RECOMMENDATIONS) --- */}
+                {recommendations && recommendations.length > 0 && (
+                    <div className="mt-16 mb-8 relative z-10 border-t border-white/5 pt-12">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="bg-gradient-to-br from-pink-500/20 to-orange-500/20 p-2.5 rounded-xl text-pink-400 border border-white/5 shadow-inner">
+                                <ThumbsUp size={24} />
+                            </div>
+                            <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Anda Mungkin Juga Suka</h2>
+                        </div>
+
+                        {/* Grid untuk Recommendations */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+                            {recommendations.map((manhwa) => (
+                                <Link
+                                    key={manhwa.slug}
+                                    href={`/detail/${manhwa.slug}`}
+                                    className="group flex flex-col gap-3"
+                                >
+                                    <div className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-lg border border-white/5 bg-neutral-900 transition-transform duration-300 group-hover:-translate-y-2 group-hover:shadow-violet-500/20">
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-10 opacity-60 group-hover:opacity-80 transition-opacity"></div>
+                                        <img
+                                            src={manhwa.cover_url}
+                                            alt={manhwa.title}
+                                            loading="lazy"
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).src = "https://placehold.co/300x400?text=No+Image";
+                                            }}
+                                        />
+
+                                        {/* Status Badge */}
+                                        <div className="absolute top-2 left-2 z-20">
+                                            <span className="px-2 py-0.5 rounded text-[9px] font-bold text-white bg-black/60 backdrop-blur-md uppercase tracking-wider shadow-sm border border-white/10">
+                                                ★ {manhwa.rating || "N/A"}
+                                            </span>
+                                        </div>
+
+                                        {/* Type Badge */}
+                                        <div className="absolute top-2 right-2 z-20">
+                                            <span className="px-2 py-0.5 rounded text-[9px] font-bold text-white bg-violet-600/90 shadow-sm backdrop-blur-md uppercase tracking-wider">
+                                                {manhwa.type || "Manhwa"}
+                                            </span>
+                                        </div>
+
+                                        {/* Total Chapter text inside cover bottom */}
+                                        <div className="absolute bottom-2 left-2 right-2 z-20">
+                                            <span className="text-[10px] font-medium text-white/90 bg-black/50 backdrop-blur-md px-1.5 py-0.5 rounded flex items-center w-fit">
+                                                {manhwa.total_chapters} Chapters
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="px-1 flex flex-col gap-1">
+                                        <h3 className="text-sm font-bold text-gray-200 line-clamp-2 leading-tight group-hover:text-violet-400 transition-colors">
+                                            {manhwa.title}
+                                        </h3>
+                                        <p className="text-[11px] text-gray-500 truncate font-medium">
+                                            {manhwa.genre || manhwa.genres?.slice(0, 2).join(", ")}
+                                        </p>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div >
         </div >
     );

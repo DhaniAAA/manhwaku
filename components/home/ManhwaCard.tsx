@@ -34,88 +34,86 @@ export default function ManhwaCard({ manhwa, position }: ManhwaCardProps) {
         <Link
             href={`/detail/${manhwa.slug}`}
             onClick={handleClick}
-            className="group relative bg-neutral-900 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
+            className="group flex flex-col gap-2.5 sm:gap-3"
         >
-            {/* Image Cover */}
-            <div className="aspect-3/4 overflow-hidden bg-neutral-800 relative">
-                {/* Label Chapter Terbaru di Pojok Kiri Atas */}
-                {manhwa.latestChapters && manhwa.latestChapters.length > 0 && (
-                    <div className="absolute top-2 left-2 z-10">
-                        <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-md">
-                            {manhwa.latestChapters[0].title.replace("Chapter", "Ch.")}
-                        </span>
-                    </div>
-                )}
+            {/* Image Container with 3:4 Aspect Ratio */}
+            <div className="relative aspect-3/4 rounded-2xl overflow-hidden shadow-lg border border-white/5 bg-neutral-900 transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-violet-500/20 group-hover:border-violet-500/30">
 
-                {/* Badge Type Komik (Bendera) di Pojok Kanan Atas */}
-                {manhwa.type && (
-                    <div className="absolute top-2 right-2 z-10" title={manhwa.type}>
-                        <img
-                            src={
-                                manhwa.type.toLowerCase() === "manhwa"
-                                    ? "/assets/bendera/south-korea.png"
-                                    : manhwa.type.toLowerCase() === "manhua"
-                                        ? "/assets/bendera/china.png"
-                                        : manhwa.type.toLowerCase() === "manga"
-                                            ? "/assets/bendera/japan.png"
-                                            : ""
-                            }
-                            alt={manhwa.type}
-                            className="w-6 h-6 rounded-sm shadow-md drop-shadow-lg"
-                        />
-                    </div>
-                )}
+                {/* Overlay Gradient (Darken bottom for text readability) */}
+                <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent z-10 opacity-70 group-hover:opacity-90 transition-opacity duration-300 pointer-events-none"></div>
 
+                {/* Purple Glow Effect on Hover */}
+                <div className="absolute inset-0 bg-violet-600/20 opacity-0 group-hover:opacity-100 mix-blend-overlay transition-opacity duration-500 z-10 pointer-events-none"></div>
+
+                {/* Cover Image */}
                 <img
                     src={manhwa.cover_url || "https://placehold.co/300x400?text=No+Image"}
                     alt={manhwa.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     loading="lazy"
                     onError={(e) => {
                         (e.target as HTMLImageElement).src = "https://placehold.co/300x400?text=No+Image";
                     }}
                 />
 
-                {/* Rating Badge di Pojok Kanan Bawah Image */}
-                <div className="absolute bottom-0 right-0 bg-linear-to-t from-black/80 to-transparent w-full p-2 flex justify-end">
-                    <div className="flex items-center text-white text-xs font-bold">
-                        <span className="text-yellow-400 mr-1">★</span>
-                        {manhwa.rating}
-                    </div>
-                </div>
-            </div>
-
-            {/* Info Section */}
-            <div className="p-3 flex flex-col grow">
-                {/* Genres (Tampilkan 1 saja biar rapi) */}
-                <div className="text-[10px] text-blue-600 font-semibold mb-1 uppercase tracking-wide">
-                    {manhwa.genres && manhwa.genres.length > 0 ? manhwa.genres[0] : manhwa.type}
+                {/* Rating Badge (Top Left) */}
+                <div className="absolute top-2 left-2 z-20">
+                    <span className="px-2 py-[3px] rounded bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-bold text-yellow-400 flex items-center gap-1 shadow-sm">
+                        ★ {manhwa.rating || "N/A"}
+                    </span>
                 </div>
 
-                {/* Title */}
-                <h3 className="font-bold text-white text-sm leading-snug line-clamp-2 mb-2 group-hover:text-blue-500 transition-colors">
-                    {manhwa.title.replace(" Bahasa Indonesia", "")}
-                </h3>
-
-                {/* Last Chapter Info */}
-                {manhwa.latestChapters && manhwa.latestChapters.length > 0 && (
-                    <div className="text-[10px] text-gray-500 mb-2">
-                        <span className="font-medium">Last: </span>
-                        {manhwa.latestChapters[manhwa.latestChapters.length - 1].title.replace("Chapter", "Ch.")}
+                {/* Country/Type Flag (Top Right) */}
+                {manhwa.type && (
+                    <div className="absolute top-2 right-2 z-20" title={manhwa.type}>
+                        <img
+                            src={
+                                manhwa.type.toLowerCase() === "manhwa" ? "/assets/bendera/south-korea.png" :
+                                    manhwa.type.toLowerCase() === "manhua" ? "/assets/bendera/china.png" :
+                                        manhwa.type.toLowerCase() === "manga" ? "/assets/bendera/japan.png" : ""
+                            }
+                            alt={manhwa.type}
+                            className="w-5 h-5 rounded-[3px] shadow-sm drop-shadow-lg"
+                        />
                     </div>
                 )}
 
-                {/* Status Badge & Total Chapters (Footer Card) */}
-                <div className="mt-auto pt-2 border-t border-neutral-800 flex justify-between items-center">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${manhwa.status === "Berjalan" ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
-                        }`}>
-                        {manhwa.status}
-                    </span>
+                {/* Bottom Overlay Info (Inside Image) */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 z-20 flex justify-between items-end">
+                    {/* Latest Chapter Number */}
+                    {manhwa.latestChapters && manhwa.latestChapters.length > 0 && (
+                        <span className="px-2 py-1 rounded bg-violet-600/90 text-white text-[10px] font-bold shadow-md uppercase tracking-wider backdrop-blur-sm">
+                            {manhwa.latestChapters[0].title.replace("Chapter", "Ch.")}
+                        </span>
+                    )}
+
+                    {/* Total Chapters Count */}
                     {manhwa.total_chapters > 0 && (
-                        <span className="text-[10px] text-gray-500 font-medium">
+                        <span className="text-[10px] font-medium text-white/90 bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/10 shadow-sm">
                             {manhwa.total_chapters} Ch
                         </span>
                     )}
+                </div>
+            </div>
+
+            {/* External Info Section */}
+            <div className="px-1 flex flex-col gap-1">
+                {/* Title */}
+                <h3 className="font-extrabold text-white text-sm sm:text-[15px] leading-snug line-clamp-2 group-hover:text-violet-400 transition-colors tracking-tight">
+                    {manhwa.title.replace(" Bahasa Indonesia", "")}
+                </h3>
+
+                {/* Meta info (Genres & Status) */}
+                <div className="flex items-center justify-between mt-0.5">
+                    <p className="text-[11px] text-gray-400 font-medium truncate pr-2">
+                        {manhwa.genres && manhwa.genres.length > 0 ? manhwa.genres.slice(0, 2).join(", ") : manhwa.type}
+                    </p>
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold shrink-0 bg-white/5 px-2 py-0.5 rounded backdrop-blur-sm border border-white/5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${manhwa.status === "Berjalan" ? "bg-green-500 shadow-[0_0_4px_#22c55e]" : "bg-red-500 shadow-[0_0_4px_#ef4444]"}`}></span>
+                        <span className={manhwa.status === "Berjalan" ? "text-green-500" : "text-red-500"}>
+                            {manhwa.status === "Berjalan" ? "ON" : "END"}
+                        </span>
+                    </span>
                 </div>
             </div>
         </Link>

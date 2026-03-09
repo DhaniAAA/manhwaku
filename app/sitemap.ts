@@ -14,6 +14,21 @@ interface ManhwaData {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
+    const ALL_GENRES = [
+        "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
+        "Martial Arts", "Mystery", "Romance", "Sci-Fi", "Slice of Life",
+        "Sports", "Supernatural", "Thriller", "Tragedy", "Historical",
+        "Psychological", "School Life", "Seinen", "Shoujo", "Shounen", "Josei",
+        "Harem", "Isekai", "Ecchi", "Gore", "Mature", "Adult"
+    ];
+
+    const genrePages: MetadataRoute.Sitemap = ALL_GENRES.map((genre) => ({
+        url: `${baseUrl}/genre/${genre.toLowerCase().replace(/\\s+/g, '-')}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.8,
+    }));
+
     // Static pages
     const staticPages: MetadataRoute.Sitemap = [
         {
@@ -40,6 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             changeFrequency: 'daily',
             priority: 0.9,
         },
+        ...genrePages
     ]
 
     // Fetch dynamic manhwa pages

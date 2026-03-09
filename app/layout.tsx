@@ -110,14 +110,15 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
 
-        {/* Google Tag Manager (Script) */}
-        <Script id="google-tag-manager" strategy="afterInteractive">
+        {/* Google tag (gtag.js) */}
+        <Script strategy="afterInteractive" src="https://www.googletagmanager.com/gtag/js?id=G-HYLTNXFC1F" />
+        <Script id="google-analytics" strategy="afterInteractive">
           {`
-            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-            })(window,document,'script','dataLayer','GTM-PQC88CCW');
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-HYLTNXFC1F');
           `}
         </Script>
 
@@ -156,15 +157,7 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* Google Tag Manager (NoScript) - Wajib di Body */}
-        <noscript>
-          <iframe
-            src="https://www.googletagmanager.com/ns.html?id=GTM-PQC88CCW"
-            height="0"
-            width="0"
-            style={{ display: 'none', visibility: 'hidden' }}
-          />
-        </noscript>
+
 
         {/* Efek Salju */}
         {/* <SnowEffect /> */}

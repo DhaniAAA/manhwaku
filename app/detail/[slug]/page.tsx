@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import DetailContent from "./DetailContent";
 import { ManhwaJsonLd, BreadcrumbJsonLd } from "@/components/seo/JsonLd";
-import { ManhwaDetail, ChapterDetail, ChaptersResponse } from "@/types/manhwa";
+import { ManhwaDetail, ChapterDetail, Manhwa } from "@/types/manhwa";
 
 // --- Data Fetching Functions (Server-side) ---
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.manhwaku.biz.id";
@@ -41,6 +41,45 @@ async function getManhwaChapters(slug: string): Promise<ChapterDetail[]> {
     return [];
   } catch (error) {
     console.error("Error fetching chapters:", error);
+    return [];
+  }
+}
+
+async function getRecommendations(currentSlug: string, currentGenres: string[]): Promise<Manhwa[]> {
+  try {
+    const res = await fetch(`${SITE_URL}/api/all_manhwa`, {
+      next: { revalidate: 3600 }, // Cache 1 hour
+    });
+
+    if (!res.ok) return [];
+
+    const allManhwas: Manhwa[] = await res.json();
+
+    // Filter out the current manhwa
+    const others = allManhwas.filter(m => m.slug !== currentSlug);
+
+    // Calculate similarity score based on shared genres
+    const withScore = others.map(m => {
+      let score = 0;
+      if (m.genres && currentGenres) {
+        m.genres.forEach(g => {
+          if (currentGenres.includes(g)) score += 1;
+        });
+      }
+      return { ...m, score };
+    });
+
+    // Sort by score (descending), then random to add variety for same scores
+    withScore.sort((a, b) => b.score - a.score || Math.random() - 0.5);
+
+    // Return top 10
+    return withScore.slice(0, 10).map(m => {
+      const { score, ...manhwaData } = m;
+      return manhwaData as Manhwa;
+    });
+
+  } catch (error) {
+    console.error("Error fetching recommendations:", error);
     return [];
   }
 }
@@ -143,6 +182,9 @@ export default async function ManhwaDetailPage({ params }: Props) {
     notFound();
   }
 
+  // Fetch recommendations after meta is loaded to use its genres
+  const recommendations = await getRecommendations(slug, meta.genres || []);
+
   const status = meta.metadata?.Status || "Berjalan";
   const author = meta.metadata?.Author || "";
 
@@ -166,7 +208,7 @@ export default async function ManhwaDetailPage({ params }: Props) {
           { name: meta.title, url: `${SITE_URL}/detail/${slug}` },
         ]}
       />
-      <DetailContent meta={meta} chapters={chapters} slug={slug} />
+      <DetailContent meta={meta} chapters={chapters} slug={slug} recommendations={recommendations} />
     </>
   );
 }

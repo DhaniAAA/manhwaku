@@ -206,6 +206,7 @@ export default async function ReadPage({ params }: Props) {
         manhwaSlug={slug}
         chapterSlug={chapterSlug}
         manhwaTitle={meta.title}
+        manhwaCover={meta.cover_url}
         chapterData={currentChapter}
         allChapters={chapters}
       />
